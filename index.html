@@ -1,4 +1,4 @@
-  <!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -16,11 +16,12 @@
     h2{font-size:14px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:16px 0 8px}
     .row{display:flex;gap:8px;align-items:center;margin:6px 0}
     .row label{flex:1 0 46%;font-size:13px;color:#c6cbd8}
+    .row label[title]{text-decoration: underline dotted; cursor: help}
     .row input[type="number"], .row input[type="text"], .row select{flex:1 0 54%;background:#0c0d10;border:1px solid #252a33;color:var(--text);border-radius:10px;padding:6px 8px}
     .row input[type="checkbox"]{transform:scale(1.1)}
     .btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;align-items:center}
     .btns button{white-space:nowrap;flex:0 0 auto}
-    button{background:#11141a;border:1px solid #2a3040;color:var(--text);padding:8px 12px;border-radius:12px;cursor:pointer}
+    button{background:#11141a;border:1px solid #2a3040;color:#fff;padding:8px 12px;border-radius:12px;cursor:pointer}
     button:hover{border-color:#3a4258}
     button.primary{background:linear-gradient(90deg,var(--accent),var(--accent2));color:#0b0d12;border:none}
     .two-col{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -57,35 +58,34 @@
       </div>
 
       <!-- Presets dropdown above Core Parameters -->
-      <div class="row"><label for="presetSelect">Choose preset</label><select id="presetSelect"></select></div>
+      <div class="row"><label for="presetSelect" title="Applies a saved set of parameters and resets the simulation.">Choose preset</label><select id="presetSelect"></select></div>
 
       <h2>Core Parameters</h2>
-      <div class="row"><label for="Nants"># of Ants</label><input id="Nants" type="number" min="1" max="5000" step="1" value="500"></div>
-      <div class="row"><label for="L">Grid size (px)</label><input id="L" type="number" min="64" max="1024" step="16" value="500"></div>
-      <div class="row"><label for="dx">Sniff step (px)</label><input id="dx" type="number" min="0.25" max="8" step="0.25" value="1"></div>
-      <div class="row"><label for="dxfor">Forward step (px)</label><input id="dxfor" type="number" min="0" max="10" step="0.5" value="2"></div>
+      <div class="row"><label for="Nants" title="Number of simulated ants. Higher values increase CPU cost."># of Ants</label><input id="Nants" type="number" min="1" max="5000" step="1" value="500"></div>
+      <div class="row"><label for="L" title="Width/height of the simulation grid in cells. Changing this reallocates state and resizes the canvas.">Grid size (px)</label><input id="L" type="number" min="64" max="1024" step="16" value="500"></div>
+            <div class="row"><label for="dxfor" title="Forward bias distance before directional sampling. Affects auto Nsamp.">Forward step (px)</label><input id="dxfor" type="number" min="0" max="10" step="0.5" value="2"></div>
 
       <h2>Pheromone Settings</h2>
-      <div class="row"><label for="dp">Deposit per step (au)</label><input id="dp" type="number" min="0" max="5" step="0.1" value="1"></div>
-      <div class="row"><label for="dpdt">Exp. decay rate</label><input id="dpdt" type="number" min="0" max="0.02" step="0.0005" value="0.001"></div>
-      <div class="row"><label for="D">Diffusion (px²/step)</label><input id="D" type="number" min="0" max="3" step="0.05" value="0"></div>
-      <div class="row"><label for="sat">Saturation (max value)</label><input id="sat" type="number" min="1" max="200" step="1" value="50"></div>
+      <div class="row"><label for="dp" title="Pheromone deposited per ant per step (dp).">Deposit per step (au)</label><input id="dp" type="number" min="0" max="5" step="0.1" value="1"></div>
+      <div class="row"><label for="dpdt" title="Per-step exponential decay rate of pheromone (dp/dt).">Exp. decay rate</label><input id="dpdt" type="number" min="0" max="0.02" step="0.0005" value="0.001"></div>
+      <div class="row"><label for="D" title="Gaussian diffusion variance in px² per step (D). Zero disables diffusion.">Diffusion (px²/step)</label><input id="D" type="number" min="0" max="3" step="0.05" value="0"></div>
+      <div class="row"><label for="sat" title="Display mapping scale: pixel = hot( 1 - exp(-value / Saturation) ). Higher values dim the image for the same pheromone.">Saturation (max value)</label><input id="sat" type="number" min="1" max="200" step="1" value="50"></div>
 
       <h2>Direction Decision</h2>
-      <div class="row"><label for="T">Decision temperature</label><input id="T" type="number" min="0.0001" max="0.02" step="0.0001" value="0.003"></div>
-      <div class="row"><label for="theta">Theta window (rad)</label><input id="theta" type="number" min="0.1" max="3.1416" step="0.05" value="0.7854"></div>
-      <div class="row"><label for="beta">Window sharpness</label><input id="beta" type="number" min="1" max="20" step="0.5" value="5"></div>
+      <div class="row"><label for="T" title="Softmax temperature used to choose a direction. Lower = greedier toward higher pheromone.">Decision temperature</label><input id="T" type="number" min="0.0001" max="0.02" step="0.0001" value="0.003"></div>
+      <div class="row"><label for="theta" title="Angular window around current heading favored by the logistic gates.">Theta window (rad)</label><input id="theta" type="number" min="0.1" max="3.1416" step="0.05" value="0.7854"></div>
+      <div class="row"><label for="beta" title="Sharpness of the logistic gates around the theta window. Higher = stricter.">Window sharpness</label><input id="beta" type="number" min="1" max="20" step="0.5" value="5"></div>
 
       <h2>External Attractors</h2>
-      <div class="row"><label for="attq">Include attractors (@ 4 corners)</label><input id="attq" type="checkbox"></div>
-      <div class="row"><label for="Datt">Diffusive width (px)</label><input id="Datt" type="number" min="1" max="100" step="1" value="50"></div>
-      <div class="row"><label for="Datt_mag">Strength (relative to deposit)</label><input id="Datt_mag" type="number" min="1" max="50" step="1" value="15"></div>
+      <div class="row"><label for="attq" title="Adds four fixed pheromone sources at quarter points.">Include attractors (@ 4 corners)</label><input id="attq" type="checkbox"></div>
+      <div class="row"><label for="Datt" title="Attractor Gaussian width (Datt). Kernel size auto = 3 × Datt (forced odd).">Diffusive width (px)</label><input id="Datt" type="number" min="1" max="100" step="1" value="50"></div>
+      <div class="row"><label for="Datt_mag" title="Attractor strength relative to deposit: effective scale = Datt_mag × dp.">Strength (relative to deposit)</label><input id="Datt_mag" type="number" min="1" max="50" step="1" value="15"></div>
 
       <h2>Display</h2>
-      <div class="row"><label for="drawAnts">Draw ants</label><input id="drawAnts" type="checkbox" checked></div>
-            <div class="row"><label for="scale">Scale (px per grid cell)</label><input id="scale" type="number" min="1" max="20" step="0.1" value="1.5"></div>
-      <div class="row"><label for="seed">Random seed</label><input id="seed" type="number" step="1" value="12345"></div>
-      <div class="row"><label for="spf">Steps per frame</label><input id="spf" type="number" min="1" max="20" step="4" value="1"></div>
+      <div class="row"><label for="drawAnts" title="Overlay cyan dots for ant positions.">Draw ants</label><input id="drawAnts" type="checkbox" checked></div>
+      <div class="row"><label for="scale" title="CSS pixel size per grid cell. Supports fractional values (e.g. 1.5).">Scale (px per grid cell)</label><input id="scale" type="number" min="1" max="20" step="0.1" value="1.5"></div>
+      <div class="row"><label for="seed" title="Random number generator seed for reproducible runs.">Random seed</label><input id="seed" type="number" step="1" value="12345"></div>
+      <div class="row"><label for="spf" title="Simulation steps advanced between renders. Higher = faster evolution per frame.">Steps per frame</label><input id="spf" type="number" min="1" max="20" step="1" value="4"></div>
 
       <div class="footer">Tristan Ursell, PhD (C) 2025</div>
     </section>
@@ -110,6 +110,9 @@ onReady(() => {
 const TAU = Math.PI * 2;
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const mod = (n, m) => ((n % m) + m) % m;
+
+// === Internal parameters ===
+const INTERNAL_DX = 1; // INTERNAL PARAM: sniff step (px) — was UI, now fixed. Adjust here if needed.
 
 // Always-computed directional samples based on dx_for
 function computeNsamp(dxfor){
@@ -217,13 +220,18 @@ function hotRGB(v){
   return [Math.round(255*r), Math.round(255*g), Math.round(255*b)];
 }
 
-function hexToRGB(hex){
-  let c = (hex||'').toString().trim();
-  if (c[0] === '#') c = c.slice(1);
-  if (c.length === 3) c = c.split('').map(ch=>ch+ch).join('');
-  const n = parseInt(c || '00ffff', 16);
-  return [(n>>16)&255, (n>>8)&255, n&255];
+// === Fast rendering LUTs ===
+const LITTLE_ENDIAN = new Uint8Array(new Uint32Array([0x11223344]).buffer)[0] === 0x44;
+function packRGBA(r,g,b,a){
+  return LITTLE_ENDIAN ? ((a<<24)|(b<<16)|(g<<8)|r) : ((r<<24)|(g<<16)|(b<<8)|a);
 }
+const COLOR_LUT = new Uint32Array(256); // hot colormap packed RGBA
+for (let i=0;i<256;i++){ const [r,g,b] = hotRGB(i/255); COLOR_LUT[i] = packRGBA(r,g,b,255); }
+const EXP_LUT_MAX = 8.0; // adequate since 1-exp(-8)≈0.9997
+const EXP_LUT_SIZE = 4096;
+const EXP_LUT_SCALE = (EXP_LUT_SIZE-1)/EXP_LUT_MAX;
+const EXP_LUT = new Float32Array(EXP_LUT_SIZE);
+for (let i=0;i<EXP_LUT_SIZE;i++){ const z = i/EXP_LUT_SCALE; EXP_LUT[i] = 1 - Math.exp(-z); }
 
 class AntSim{
   constructor(canvas){
@@ -241,7 +249,7 @@ class AntSim{
     return {
       Nants: clamp(valN('Nants')|0, 1, 5000),
       L,
-      dx: Number(document.getElementById('dx').value),
+      dx: INTERNAL_DX,
       dx_for,
       Nsamp,
       dp: Number(document.getElementById('dp').value),
@@ -252,7 +260,8 @@ class AntSim{
       beta: Number(document.getElementById('beta').value),
       pher_sat: Number(document.getElementById('sat').value),
       attq: document.getElementById('attq').checked,
-      drawAnts: document.getElementById('drawAnts').checked,      stepsPerFrame: clamp(valN('spf')|0, 1, 100),
+      drawAnts: document.getElementById('drawAnts').checked,
+      stepsPerFrame: clamp(valN('spf')|0, 1, 100),
       scale: clamp(valN('scale'), 1, 20),
       seed: valN('seed')|0,
       Datt: Math.max(1, valN('Datt')),
@@ -261,22 +270,35 @@ class AntSim{
   }
   init(){
     this.p = this.paramsFromUI();
-    this.c.width = this.p.L; this.c.height = this.p.L;
-    this.c.style.width = (this.p.L * this.p.scale) + 'px';
-    this.c.style.height = (this.p.L * this.p.scale) + 'px';
+    const L = this.p.L;
+    this.c.width = L; this.c.height = L;
+    this.c.style.width = (L * this.p.scale) + 'px';
+    this.c.style.height = (L * this.p.scale) + 'px';
     this.ctx.imageSmoothingEnabled = false;
-    this.antColorRGB = [0,255,255]; // ant color setting
+    // fast render surfaces
+    this.imd = this.ctx.createImageData(L, L);
+    this.px = new Uint32Array(this.imd.data.buffer);
+    this.invSat = 1 / Math.max(1e-6, this.p.pher_sat);
+    this.antPacked = packRGBA(0,255,255,255); // ant color setting
+    // RNG
     this.rng = mulberry32(this.p.seed || 1);
+    // Directional sampling
     const Ns = this.p.Nsamp;
     this.theta_vec = new Float32Array(Ns);
     this.cos_th = new Float32Array(Ns);
     this.sin_th = new Float32Array(Ns);
     for (let k=0;k<Ns;k++){ const th = k*TAU/Ns; this.theta_vec[k]=th; this.cos_th[k]=Math.cos(th); this.sin_th[k]=Math.sin(th); }
-    const L = this.p.L; const N = L*L; this.pher = new Float32Array(N); this.pher.fill(0);
+    this.probs = new Float32Array(Ns);
+    // Field & ants
+    const N = L*L; this.pher = new Float32Array(N); this.pher.fill(0);
     const A = this.p.Nants; this.ax = new Float32Array(A); this.ay = new Float32Array(A); this.at = new Float32Array(A);
-    for (let i=0;i<A;i++){ this.ax[i] = this.rng()*(L-2)+1; this.ay[i] = this.rng()*(L-2)+1; this.at[i] = this.rng()*TAU; }
+    this.vx = new Float32Array(A); this.vy = new Float32Array(A);
+    for (let i=0;i<A;i++){ const th = this.rng()*TAU; this.at[i] = th; this.vx[i]=Math.cos(th); this.vy[i]=Math.sin(th); this.ax[i] = this.rng()*(L-2)+1; this.ay[i] = this.rng()*(L-2)+1; }
+    // Diffusion kernel
     this.gk = buildGaussian1D(this.p.D);
-    this.attKernel = this.buildAttractorKernel(computeAttSize(this.p.Datt), this.p.Datt, this.p.Datt_mag * this.p.dp);
+    // Attractor kernel + precomputed indices
+    this.rebuildAttractorStructures();
+    // Initial deposit / diffuse / decay
     this.depositPheromone(this.ax, this.ay, this.p.dp);
     if (this.p.attq) this.depositAttractors();
     if (this.p.D > 0) this.pher = convolveToroidalSeparable(this.pher, L, this.gk);
@@ -290,11 +312,8 @@ class AntSim{
     const x0 = Math.floor(x), y0 = Math.floor(y);
     const x1 = mod(x0+1, L), y1 = mod(y0+1, L);
     const fx = x - x0, fy = y - y0;
-    const w1 = fx*fy, w2 = (1-fx)*fy, w3=(1-fx)*(1-fy), w4=fx*(1-fy);
-    const i11 = this.index(mod(x1,L), mod(y1,L));
-    const i21 = this.index(mod(x0,L), mod(y1,L));
-    const i31 = this.index(mod(x0,L), mod(y0,L));
-    const i41 = this.index(mod(x1,L), mod(y0,L));
+    const w1 = fx*fy, w2=(1-fx)*fy, w3=(1-fx)*(1-fy), w4=fx*(1-fy);
+    const i11 = this.index(x1,y1), i21 = this.index(x0,y1), i31 = this.index(x0,y0), i41=this.index(x1,y0);
     return this.pher[i11]*w1 + this.pher[i21]*w2 + this.pher[i31]*w3 + this.pher[i41]*w4;
   }
   depositPheromone(xs, ys, amount){
@@ -304,7 +323,7 @@ class AntSim{
       const x0 = Math.floor(x), y0 = Math.floor(y);
       const x1 = mod(x0+1, L), y1 = mod(y0+1, L);
       const fx = x - x0, fy = y - y0;
-      const w1 = fx*fy, w2 = (1-fx)*fy, w3=(1-fx)*(1-fy), w4=fx*(1-fy);
+      const w1 = fx*fy, w2=(1-fx)*fy, w3=(1-fx)*(1-fy), w4=fx*(1-fy);
       this.pher[this.index(x1,y1)] += amount*w1;
       this.pher[this.index(x0,y1)] += amount*w2;
       this.pher[this.index(x0,y0)] += amount*w3;
@@ -324,16 +343,34 @@ class AntSim{
     let minv = Infinity; let idx=0;
     for (let y=-half;y<=half;y++){
       for (let x=-half;x<=half;x++){
-        // Heat-kernel style Gaussian with width parameter Datt
         const v = Math.exp(-(x*x + y*y)/(4*Datt));
         k[idx++] = v; if (v < minv) minv = v;
       }
     }
-    // Lift baseline and normalize to total 'scale'
     let sum=0; for (let i=0;i<k.length;i++){ k[i] -= minv; sum += k[i]; }
     const norm = (sum > 0 ? scale / sum : 0);
     for (let i=0;i<k.length;i++) k[i] *= norm;
     return { data:k, size:S, half };
+  }
+  buildAttractorIndices(){
+    const L = this.p.L; const { size:S, half } = this.attKernel;
+    const centers = [ [Math.round(L/4), Math.round(L/4)], [Math.round(3*L/4), Math.round(3*L/4)], [Math.round(3*L/4), Math.round(L/4)], [Math.round(L/4), Math.round(3*L/4)] ];
+    this.attIndexLists = centers.map(([cx,cy])=>{
+      const idxs = new Uint32Array(S*S);
+      let t=0;
+      for (let dy=-half; dy<=half; dy++){
+        const y = mod(cy+dy, L); const rowBase = y*L;
+        for (let dx=-half; dx<=half; dx++){
+          const x = mod(cx+dx, L);
+          idxs[t++] = rowBase + x;
+        }
+      }
+      return idxs;
+    });
+  }
+  rebuildAttractorStructures(){
+    this.attKernel = this.buildAttractorKernel(computeAttSize(this.p.Datt), this.p.Datt, this.p.Datt_mag * this.p.dp);
+    this.buildAttractorIndices();
   }
   rebuildSampling(Ns){
     this.p.Nsamp = Ns|0;
@@ -344,6 +381,7 @@ class AntSim{
     for (let k=0;k<n;k++){
       const th = k*TAU/n; this.theta_vec[k]=th; this.cos_th[k]=Math.cos(th); this.sin_th[k]=Math.sin(th);
     }
+    this.probs = new Float32Array(n);
   }
   stampKernel(cx, cy, kernel){
     const L = this.p.L; const S = kernel.size; const half = kernel.half; const data = kernel.data;
@@ -357,24 +395,24 @@ class AntSim{
     }
   }
   depositAttractors(){
-    const L = this.p.L;
-    const c = [ [L/4, L/4], [3*L/4, 3*L/4], [3*L/4, L/4], [L/4, 3*L/4] ];
-    for (const [x,y] of c) this.stampKernel(x,y,this.attKernel);
+    if (!this.attIndexLists) return;
+    const data = this.attKernel.data; const n = data.length; const arr = this.pher;
+    for (const idxs of this.attIndexLists){
+      for (let t=0;t<n;t++) arr[idxs[t]] += data[t];
+    }
   }
   step(){
     const A = this.p.Nants; const Ns = this.p.Nsamp; const L = this.p.L;
     const { dx, dx_for, T, beta, theta_win, dp } = this.p;
-
-    const probs = new Float32Array(Ns);
-
+    const probs = this.probs;
     for (let j=0;j<A;j++){
       const x1 = this.ax[j];
       const y1 = this.ay[j];
+      const vx = this.vx[j];
+      const vy = this.vy[j];
       const th0 = this.at[j];
-
-      const xf = mod(x1 + dx_for*Math.cos(th0), L);
-      const yf = mod(y1 + dx_for*Math.sin(th0), L);
-
+      const xf = mod(x1 + dx_for*vx, L);
+      const yf = mod(y1 + dx_for*vy, L);
       for (let k=0;k<Ns;k++){
         const xt = mod(xf + dx*this.cos_th[k], L);
         const yt = mod(yf + dx*this.sin_th[k], L);
@@ -383,46 +421,37 @@ class AntSim{
         const gate = 1/(1 + Math.exp(-beta*(dth + theta_win/2))) * 1/(1 + Math.exp(beta*(dth - theta_win/2)));
         probs[k] = pher * gate;
       }
-
       const P = softmaxStable(probs, T);
       const choice = sampleFromProbs(this.rng, P);
-      const thNow = this.theta_vec[choice];
-
-      const x2 = mod(x1 + dx*Math.cos(thNow), L);
-      const y2 = mod(y1 + dx*Math.sin(thNow), L);
-      this.ax[j] = x2; this.ay[j] = y2; this.at[j] = thNow;
+      const cx = this.cos_th[choice], cy = this.sin_th[choice];
+      const x2 = mod(x1 + dx*cx, L);
+      const y2 = mod(y1 + dx*cy, L);
+      this.ax[j] = x2; this.ay[j] = y2; this.at[j] = this.theta_vec[choice];
+      this.vx[j] = cx; this.vy[j] = cy;
     }
-
     this.depositPheromone(this.ax, this.ay, dp);
-
     if (this.p.attq) this.depositAttractors();
-
-    if (this.p.D > 0){
-      this.pher = convolveToroidalSeparable(this.pher, L, this.gk);
-    }
-
+    if (this.p.D > 0){ this.pher = convolveToroidalSeparable(this.pher, L, this.gk); }
     this.applyDecay();
-
     this.frame++;
   }
   render(){
-    const L = this.p.L; const imd = this.ctx.createImageData(L, L);
-    const buf = imd.data; const sat = this.p.pher_sat; const arr = this.pher;
-    for (let i=0, p=0;i<arr.length;i++, p+=4){
-      const v = 1 - Math.exp(-arr[i] / sat);
-      const [r,g,b] = hotRGB(v);
-      buf[p]=r; buf[p+1]=g; buf[p+2]=b; buf[p+3]=255;
+    const L = this.p.L; const arr = this.pher; const invSat = this.invSat; const px = this.px;
+    // Map field -> colors using LUTs
+    for (let i=0;i<arr.length;i++){
+      let z = arr[i] * invSat; if (z > EXP_LUT_MAX) z = EXP_LUT_MAX; else if (z < 0) z = 0;
+      const vi = EXP_LUT[(z * EXP_LUT_SCALE) | 0];
+      const ci = (vi * 255 + 0.5) | 0;
+      px[i] = COLOR_LUT[ci];
     }
     if (this.p.drawAnts){
-      const c = this.antColorRGB || [0,255,255];
-      const ar=c[0], ag=c[1], ab=c[2];
+      const packed = this.antPacked; const L = this.p.L;
       for (let i=0;i<this.p.Nants;i++){
         const x0 = this.ax[i]|0, y0 = this.ay[i]|0;
-        const idx = 4 * (y0*L + x0);
-        buf[idx]=ar; buf[idx+1]=ag; buf[idx+2]=ab; buf[idx+3]=255;
+        px[y0*L + x0] = packed;
       }
     }
-    this.ctx.putImageData(imd, 0, 0);
+    this.ctx.putImageData(this.imd, 0, 0);
 
     // Update stats if present
     const stepEl = document.getElementById('statStep');
@@ -467,10 +496,10 @@ $('exportBtn').onclick = ()=>{
   const showLink = (href)=>{
     try{ if (lastExportUrl && lastExportUrl.startsWith('blob:')) URL.revokeObjectURL(lastExportUrl); }catch(e){}
     lastExportUrl = href;
-    link.href = href; link.setAttribute('download', name);
-    notice.style.display = 'block';
+    if (link){ link.href = href; link.setAttribute('download', name); }
+    if (notice) notice.style.display = 'block';
     // Try automatic download, but leave the link visible as a fallback
-    setTimeout(()=>{ try{ link.click(); }catch(e){} }, 0);
+    setTimeout(()=>{ try{ link && link.click(); }catch(e){} }, 0);
   };
   try{
     if (cnv.toBlob){
@@ -483,8 +512,7 @@ $('exportBtn').onclick = ()=>{
     }
   }catch(err){
     console.error('Export failed:', err);
-    notice.textContent = 'Export failed. See console for details.';
-    notice.style.display = 'block';
+    if (notice){ notice.textContent = 'Export failed. See console for details.'; notice.style.display = 'block'; }
   }
 };
 
@@ -497,21 +525,19 @@ function wireLiveControls(){
   const $ = (id)=>document.getElementById(id);
   const num = (id, fn) => $(id).addEventListener('input', ()=> fn(Number($(id).value)));
   const chk = (id, fn) => $(id).addEventListener('change', ()=> fn($(id).checked));
-  const color = (id, fn) => $(id).addEventListener('input', ()=> fn($(id).value));
   num('dpdt', v => app.p.dpdt = Math.max(0, v));
-  num('dp', v => { app.p.dp = Math.max(0, v); app.attKernel = app.buildAttractorKernel(computeAttSize(app.p.Datt), app.p.Datt, app.p.Datt_mag * app.p.dp); });
+  num('dp', v => { app.p.dp = Math.max(0, v); app.rebuildAttractorStructures(); });
   num('D', v => { app.p.D = Math.max(0, v); app.gk = buildGaussian1D(app.p.D); });
   num('T', v => app.p.T = Math.max(1e-6, v));
   num('theta', v => app.p.theta_win = v);
   num('beta', v => app.p.beta = v);
-  num('dx', v => app.p.dx = v);
-  num('dxfor', v => { app.p.dx_for = v; const Ns = computeNsamp(v); app.rebuildSampling(Ns); });
-  num('sat', v => app.p.pher_sat = Math.max(1, v));
+    num('dxfor', v => { app.p.dx_for = v; const Ns = computeNsamp(v); app.rebuildSampling(Ns); });
+  num('sat', v => { app.p.pher_sat = Math.max(1, v); app.invSat = 1 / app.p.pher_sat; });
   chk('attq', v => app.p.attq = v);
   chk('drawAnts', v => app.p.drawAnts = v);
   num('spf', v => app.p.stepsPerFrame = Math.max(1, v|0));
-  num('Datt', v => { app.p.Datt = Math.max(1, v); app.attKernel = app.buildAttractorKernel(computeAttSize(app.p.Datt), app.p.Datt, app.p.Datt_mag * app.p.dp); });
-  num('Datt_mag', v => { app.p.Datt_mag = Math.max(0, v); app.attKernel = app.buildAttractorKernel(computeAttSize(app.p.Datt), app.p.Datt, app.p.Datt_mag * app.p.dp); });
+  num('Datt', v => { app.p.Datt = Math.max(1, v); app.rebuildAttractorStructures(); });
+  num('Datt_mag', v => { app.p.Datt_mag = Math.max(0, v); app.rebuildAttractorStructures(); });
 }
 
 const PRESETS = [
