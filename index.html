@@ -18,7 +18,8 @@
     .row label{flex:1 0 46%;font-size:13px;color:#c6cbd8}
     .row input[type="number"], .row input[type="text"], .row select{flex:1 0 54%;background:#0c0d10;border:1px solid #252a33;color:var(--text);border-radius:10px;padding:6px 8px}
     .row input[type="checkbox"]{transform:scale(1.1)}
-    .btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+    .btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;align-items:center}
+    .btns button{white-space:nowrap;flex:0 0 auto}
     button{background:#11141a;border:1px solid #2a3040;color:var(--text);padding:8px 12px;border-radius:12px;cursor:pointer}
     button:hover{border-color:#3a4258}
     button.primary{background:linear-gradient(90deg,var(--accent),var(--accent2));color:#0b0d12;border:none}
@@ -43,6 +44,8 @@
         <button id="pauseBtn">Pause</button>
         <button id="resetBtn">Reset</button>
         <button id="stepBtn">Step</button>
+      </div>
+      <div class="btns" id="exportRow">
         <button id="exportBtn">Export PNG</button>
       </div>
       <div id="exportNotice" class="note" style="display:none;margin-top:6px">Download ready — if it didn’t start, click <a id="exportLink" class="btn-link" download>Download PNG</a>.</div>
@@ -59,34 +62,32 @@
       <h2>Core Parameters</h2>
       <div class="row"><label for="Nants"># of Ants</label><input id="Nants" type="number" min="1" max="5000" step="1" value="500"></div>
       <div class="row"><label for="L">Grid size (px)</label><input id="L" type="number" min="64" max="1024" step="16" value="500"></div>
-      <div class="row"><label for="dx">Sniff Step (px)</label><input id="dx" type="number" min="0.25" max="8" step="0.25" value="1"></div>
-      <div class="row"><label for="dxfor">Forward Step (px)</label><input id="dxfor" type="number" min="0" max="10" step="0.5" value="2"></div>
+      <div class="row"><label for="dx">Sniff step (px)</label><input id="dx" type="number" min="0.25" max="8" step="0.25" value="1"></div>
+      <div class="row"><label for="dxfor">Forward step (px)</label><input id="dxfor" type="number" min="0" max="10" step="0.5" value="2"></div>
 
-      <h2>Pheromone</h2>
-      <div class="row"><label for="dp">Deposit per step (dp)</label><input id="dp" type="number" min="0" max="5" step="0.1" value="1"></div>
-      <div class="row"><label for="dpdt">Decay rate dp/dt</label><input id="dpdt" type="number" min="0" max="0.02" step="0.0005" value="0.001"></div>
-      <div class="row"><label for="D">Diffusion D (px²/step)</label><input id="D" type="number" min="0" max="3" step="0.05" value="0"></div>
-      <div class="row"><label for="sat">Saturation (pher_sat)</label><input id="sat" type="number" min="1" max="200" step="1" value="50"></div>
+      <h2>Pheromone Settings</h2>
+      <div class="row"><label for="dp">Deposit per step (au)</label><input id="dp" type="number" min="0" max="5" step="0.1" value="1"></div>
+      <div class="row"><label for="dpdt">Exp. decay rate</label><input id="dpdt" type="number" min="0" max="0.02" step="0.0005" value="0.001"></div>
+      <div class="row"><label for="D">Diffusion (px²/step)</label><input id="D" type="number" min="0" max="3" step="0.05" value="0"></div>
+      <div class="row"><label for="sat">Saturation (max value)</label><input id="sat" type="number" min="1" max="200" step="1" value="50"></div>
 
-      <h2>Decision Model</h2>
-      <div class="row"><label for="T">Temperature T</label><input id="T" type="number" min="0.0001" max="0.02" step="0.0001" value="0.003"></div>
+      <h2>Direction Decision</h2>
+      <div class="row"><label for="T">Decision temperature</label><input id="T" type="number" min="0.0001" max="0.02" step="0.0001" value="0.003"></div>
       <div class="row"><label for="theta">Theta window (rad)</label><input id="theta" type="number" min="0.1" max="3.1416" step="0.05" value="0.7854"></div>
-      <div class="row"><label for="beta">Beta (window sharpness)</label><input id="beta" type="number" min="1" max="20" step="0.5" value="5"></div>
+      <div class="row"><label for="beta">Window sharpness</label><input id="beta" type="number" min="1" max="20" step="0.5" value="5"></div>
 
-      <h2>Attractor Kernel</h2>
-      <div class="row"><label for="attq">Attractor spots (4 corners)</label><input id="attq" type="checkbox" checked></div>
-      <div class="row"><label for="att_size">Size (odd)</label><input id="att_size" type="number" min="11" max="101" step="2" value="61"></div>
-      <div class="row"><label for="Datt">Width D_att</label><input id="Datt" type="number" min="1" max="100" step="1" value="50"></div>
-      <div class="row"><label for="Datt_mag">Strength (×dp)</label><input id="Datt_mag" type="number" min="1" max="50" step="1" value="15"></div>
+      <h2>External Attractors</h2>
+      <div class="row"><label for="attq">Include attractors (@ 4 corners)</label><input id="attq" type="checkbox" checked></div>
+      <div class="row"><label for="Datt">Diffusive width (px)</label><input id="Datt" type="number" min="1" max="100" step="1" value="50"></div>
+      <div class="row"><label for="Datt_mag">Strength (relative to deposit)</label><input id="Datt_mag" type="number" min="1" max="50" step="1" value="15"></div>
 
-      <h2>Environment</h2>
+      <h2>Display</h2>
       <div class="row"><label for="drawAnts">Draw ants</label><input id="drawAnts" type="checkbox" checked></div>
-      <div class="row"><label for="antColor">Ant color</label><input id="antColor" type="color" value="#00ffff"></div>
-      <div class="row"><label for="scale">Scale (px per grid cell)</label><input id="scale" type="number" min="1" max="20" step="1" value="1"></div>
-      <div class="row"><label for="seed">PRNG seed</label><input id="seed" type="number" step="1" value="12345"></div>
+            <div class="row"><label for="scale">Scale (px per grid cell)</label><input id="scale" type="number" min="1" max="20" step="1" value="1"></div>
+      <div class="row"><label for="seed">Random seed</label><input id="seed" type="number" step="1" value="12345"></div>
       <div class="row"><label for="spf">Steps per frame</label><input id="spf" type="number" min="1" max="20" step="1" value="1"></div>
 
-      <div class="footer">Toroidal wrap; diffusion via separable Gaussian; softmax choice with angular window gating.</div>
+      <div class="footer">Tristan Ursell, PhD (C) 2025</div>
     </section>
 
     <!-- Right: Display -->
@@ -115,6 +116,16 @@ function computeNsamp(dxfor){
   // MATLAB-inspired: Nsamp = 8 * round(pi * dx_for), clamped
   const ns = 8 * Math.round(Math.PI * (Number(dxfor)||0));
   return clamp(ns|0, 8, 120);
+}
+
+// Always derive attractor kernel size from diffusion width (px)
+function computeAttSize(Datt){
+  // requested: size = 3 × Datt (in pixels), force odd >= 3
+  const raw = Math.max(1, Number(Datt)||1) * 3;
+  let s = Math.round(raw);
+  if (s < 3) s = 3;
+  if (s % 2 === 0) s += 1; // force odd for centered kernel
+  return s;
 }
 
 function mulberry32(seed){
@@ -235,17 +246,15 @@ class AntSim{
       Nsamp,
       dp: Number(document.getElementById('dp').value),
       dpdt: Number(document.getElementById('dpdt').value),
-      D: Number(document.getElementById('D').value),      T: Number(document.getElementById('T').value),
+      D: Number(document.getElementById('D').value),
+      T: Number(document.getElementById('T').value),
       theta_win: Number(document.getElementById('theta').value),
       beta: Number(document.getElementById('beta').value),
       pher_sat: Number(document.getElementById('sat').value),
       attq: document.getElementById('attq').checked,
-      drawAnts: document.getElementById('drawAnts').checked,
-      antColor: get('antColor').value,
-      stepsPerFrame: clamp(valN('spf')|0, 1, 100),
+      drawAnts: document.getElementById('drawAnts').checked,      stepsPerFrame: clamp(valN('spf')|0, 1, 100),
       scale: clamp(valN('scale')|0, 1, 20),
       seed: valN('seed')|0,
-      att_size: clamp(valN('att_size')|0, 11, 101),
       Datt: Math.max(1, valN('Datt')),
       Datt_mag: Math.max(0, valN('Datt_mag'))
     };
@@ -256,7 +265,7 @@ class AntSim{
     this.c.style.width = (this.p.L * this.p.scale) + 'px';
     this.c.style.height = (this.p.L * this.p.scale) + 'px';
     this.ctx.imageSmoothingEnabled = false;
-    this.antColorRGB = hexToRGB(this.p.antColor || '#00ffff');
+    this.antColorRGB = [0,255,255]; // ant color setting
     this.rng = mulberry32(this.p.seed || 1);
     const Ns = this.p.Nsamp;
     this.theta_vec = new Float32Array(Ns);
@@ -267,7 +276,7 @@ class AntSim{
     const A = this.p.Nants; this.ax = new Float32Array(A); this.ay = new Float32Array(A); this.at = new Float32Array(A);
     for (let i=0;i<A;i++){ this.ax[i] = this.rng()*(L-2)+1; this.ay[i] = this.rng()*(L-2)+1; this.at[i] = this.rng()*TAU; }
     this.gk = buildGaussian1D(this.p.D);
-    this.attKernel = this.buildAttractorKernel(this.p.att_size, this.p.Datt, this.p.Datt_mag * this.p.dp);
+    this.attKernel = this.buildAttractorKernel(computeAttSize(this.p.Datt), this.p.Datt, this.p.Datt_mag * this.p.dp);
     this.depositPheromone(this.ax, this.ay, this.p.dp);
     if (this.p.attq) this.depositAttractors();
     if (this.p.D > 0) this.pher = convolveToroidalSeparable(this.pher, L, this.gk);
@@ -308,18 +317,21 @@ class AntSim{
     for (let i=0;i<n;i++) arr[i] *= decay;
   }
   buildAttractorKernel(size, Datt, scale){
-    const S = (size % 2 === 1) ? size : (size+1);
+    // size is ignored in favor of Datt-driven size per requirement
+    const S = computeAttSize(Datt);
     const half = (S-1)/2;
     const k = new Float32Array(S*S);
     let minv = Infinity; let idx=0;
     for (let y=-half;y<=half;y++){
       for (let x=-half;x<=half;x++){
+        // Heat-kernel style Gaussian with width parameter Datt
         const v = Math.exp(-(x*x + y*y)/(4*Datt));
         k[idx++] = v; if (v < minv) minv = v;
       }
     }
+    // Lift baseline and normalize to total 'scale'
     let sum=0; for (let i=0;i<k.length;i++){ k[i] -= minv; sum += k[i]; }
-    const norm = scale / sum;
+    const norm = (sum > 0 ? scale / sum : 0);
     for (let i=0;i<k.length;i++) k[i] *= norm;
     return { data:k, size:S, half };
   }
@@ -487,7 +499,7 @@ function wireLiveControls(){
   const chk = (id, fn) => $(id).addEventListener('change', ()=> fn($(id).checked));
   const color = (id, fn) => $(id).addEventListener('input', ()=> fn($(id).value));
   num('dpdt', v => app.p.dpdt = Math.max(0, v));
-  num('dp', v => { app.p.dp = Math.max(0, v); app.attKernel = app.buildAttractorKernel(app.p.att_size, app.p.Datt, app.p.Datt_mag * app.p.dp); });
+  num('dp', v => { app.p.dp = Math.max(0, v); app.attKernel = app.buildAttractorKernel(computeAttSize(app.p.Datt), app.p.Datt, app.p.Datt_mag * app.p.dp); });
   num('D', v => { app.p.D = Math.max(0, v); app.gk = buildGaussian1D(app.p.D); });
   num('T', v => app.p.T = Math.max(1e-6, v));
   num('theta', v => app.p.theta_win = v);
@@ -497,11 +509,9 @@ function wireLiveControls(){
   num('sat', v => app.p.pher_sat = Math.max(1, v));
   chk('attq', v => app.p.attq = v);
   chk('drawAnts', v => app.p.drawAnts = v);
-  color('antColor', v => app.antColorRGB = hexToRGB(v));
   num('spf', v => app.p.stepsPerFrame = Math.max(1, v|0));
-  num('att_size', v => { app.p.att_size = v|0; app.attKernel = app.buildAttractorKernel(app.p.att_size, app.p.Datt, app.p.Datt_mag * app.p.dp); });
-  num('Datt', v => { app.p.Datt = Math.max(1, v); app.attKernel = app.buildAttractorKernel(app.p.att_size, app.p.Datt, app.p.Datt_mag * app.p.dp); });
-  num('Datt_mag', v => { app.p.Datt_mag = Math.max(0, v); app.attKernel = app.buildAttractorKernel(app.p.att_size, app.p.Datt, app.p.Datt_mag * app.p.dp); });
+  num('Datt', v => { app.p.Datt = Math.max(1, v); app.attKernel = app.buildAttractorKernel(computeAttSize(app.p.Datt), app.p.Datt, app.p.Datt_mag * app.p.dp); });
+  num('Datt_mag', v => { app.p.Datt_mag = Math.max(0, v); app.attKernel = app.buildAttractorKernel(computeAttSize(app.p.Datt), app.p.Datt, app.p.Datt_mag * app.p.dp); });
 }
 
 const PRESETS = [
@@ -562,6 +572,9 @@ wireLiveControls();
   console.assert(computeNsamp(0) === 8, 'Nsamp clamp min');
   console.assert(computeNsamp(2) === 8*Math.round(Math.PI*2), 'Nsamp = 8*round(pi*dx_for)');
   console.assert(computeNsamp(10) === 120, 'Nsamp clamp max');
+  // att size tests
+  console.assert(computeAttSize(10) % 2 === 1 && computeAttSize(10) >= 30, 'att size odd and ~3x Datt');
+  console.assert(computeAttSize(1) >= 3 && computeAttSize(1) % 2 === 1, 'att size min odd >=3');
   // App consistency
   console.assert(app.p.Nsamp === computeNsamp(app.p.dx_for), 'app Nsamp consistent with dx_for');
   const testNs = computeNsamp(3); app.rebuildSampling(testNs); console.assert(app.theta_vec.length === testNs, 'rebuildSampling sets sampling size');
