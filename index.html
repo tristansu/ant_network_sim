@@ -1,0 +1,576 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ant Path Simulator — Interactive</title>
+  <style>
+    :root{ --bg:#0e0f12; --panel:#14161b; --muted:#8a93a8; --text:#e8ebf2; --accent:#6ee7ff; --accent2:#a78bfa; --good:#86efac; --warn:#fbbf24; --danger:#fb7185; --grid-gap:14px; --radius:14px }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+    .header{padding:var(--grid-gap);padding-bottom:0}
+    .header h1{margin:0 0 6px 0;font-size:22px}
+    .note{font-size:12px;color:#9aa3b7}
+    .wrap{display:grid;grid-template-columns:360px 1fr;gap:var(--grid-gap);padding:var(--grid-gap);padding-top:8px;align-items:start}
+    .card{background:var(--panel);border-radius:var(--radius);box-shadow:0 10px 30px rgba(0,0,0,.35);padding:16px}
+    h2{font-size:14px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:16px 0 8px}
+    .row{display:flex;gap:8px;align-items:center;margin:6px 0}
+    .row label{flex:1 0 46%;font-size:13px;color:#c6cbd8}
+    .row input[type="number"], .row input[type="text"], .row select{flex:1 0 54%;background:#0c0d10;border:1px solid #252a33;color:var(--text);border-radius:10px;padding:6px 8px}
+    .row input[type="checkbox"]{transform:scale(1.1)}
+    .btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+    button{background:#11141a;border:1px solid #2a3040;color:var(--text);padding:8px 12px;border-radius:12px;cursor:pointer}
+    button:hover{border-color:#3a4258}
+    button.primary{background:linear-gradient(90deg,var(--accent),var(--accent2));color:#0b0d12;border:none}
+    .two-col{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .stat{font-variant-numeric:tabular-nums;color:#b9c1d8;font-size:12px}
+    canvas{image-rendering:pixelated;image-rendering:crisp-edges;border-radius:16px;border:1px solid #222630;background:#000}
+    .footer{color:#7e879a;font-size:12px;margin-top:12px}
+    a.btn-link{color:var(--accent)}
+  </style>
+</head>
+<body>
+  <header class="header">
+    <h1>Ant Path Simulator</h1>
+    <div class="note">Port of the MATLAB model (pheromone-laying ants with toroidal boundaries, diffusion/decay, orientation gating).</div>
+  </header>
+
+  <main class="wrap">
+    <!-- Left: Controls -->
+    <section class="card">
+      <div class="btns top-controls">
+        <button class="primary" id="startBtn">Start</button>
+        <button id="pauseBtn">Pause</button>
+        <button id="resetBtn">Reset</button>
+        <button id="stepBtn">Step</button>
+        <button id="exportBtn">Export PNG</button>
+      </div>
+      <div id="exportNotice" class="note" style="display:none;margin-top:6px">Download ready — if it didn’t start, click <a id="exportLink" class="btn-link" download>Download PNG</a>.</div>
+
+      <!-- Top stats directly under buttons -->
+      <div class="two-col top-stats" style="margin-top:6px">
+        <div class="stat">Step: <span id="statStep">0</span></div>
+        <div class="stat">FPS: <span id="statFPS">0</span></div>
+      </div>
+
+      <!-- Presets dropdown above Core Parameters -->
+      <h2>Presets</h2>
+      <div class="row"><label for="presetSelect">Choose preset</label><select id="presetSelect"></select></div>
+
+      <h2>Core Parameters</h2>
+      <div class="row"><label for="Nants"># of Ants</label><input id="Nants" type="number" min="1" max="5000" step="1" value="500"></div>
+      <div class="row"><label for="L">Grid size (px)</label><input id="L" type="number" min="64" max="1024" step="16" value="500"></div>
+      <div class="row"><label for="dx">Sniff Step (px)</label><input id="dx" type="number" min="0.25" max="8" step="0.25" value="1"></div>
+      <div class="row"><label for="dxfor">Forward Step (px)</label><input id="dxfor" type="number" min="0" max="10" step="0.5" value="2"></div>
+
+      <h2>Pheromone</h2>
+      <div class="row"><label for="dp">Deposit per step (dp)</label><input id="dp" type="number" min="0" max="5" step="0.1" value="1"></div>
+      <div class="row"><label for="dpdt">Decay rate dp/dt</label><input id="dpdt" type="number" min="0" max="0.02" step="0.0005" value="0.001"></div>
+      <div class="row"><label for="D">Diffusion D (px²/step)</label><input id="D" type="number" min="0" max="3" step="0.05" value="0"></div>
+      <div class="row"><label for="sat">Saturation (pher_sat)</label><input id="sat" type="number" min="1" max="200" step="1" value="50"></div>
+
+      <h2>Decision Model</h2>
+      <div class="row"><label for="T">Temperature T</label><input id="T" type="number" min="0.0001" max="0.02" step="0.0001" value="0.003"></div>
+      <div class="row"><label for="theta">Theta window (rad)</label><input id="theta" type="number" min="0.1" max="3.1416" step="0.05" value="0.7854"></div>
+      <div class="row"><label for="beta">Beta (window sharpness)</label><input id="beta" type="number" min="1" max="20" step="0.5" value="5"></div>
+
+      <h2>Attractor Kernel</h2>
+      <div class="row"><label for="attq">Attractor spots (4 corners)</label><input id="attq" type="checkbox" checked></div>
+      <div class="row"><label for="att_size">Size (odd)</label><input id="att_size" type="number" min="11" max="101" step="2" value="61"></div>
+      <div class="row"><label for="Datt">Width D_att</label><input id="Datt" type="number" min="1" max="100" step="1" value="50"></div>
+      <div class="row"><label for="Datt_mag">Strength (×dp)</label><input id="Datt_mag" type="number" min="1" max="50" step="1" value="15"></div>
+
+      <h2>Environment</h2>
+      <div class="row"><label for="drawAnts">Draw ants</label><input id="drawAnts" type="checkbox" checked></div>
+      <div class="row"><label for="antColor">Ant color</label><input id="antColor" type="color" value="#00ffff"></div>
+      <div class="row"><label for="scale">Scale (px per grid cell)</label><input id="scale" type="number" min="1" max="20" step="1" value="1"></div>
+      <div class="row"><label for="seed">PRNG seed</label><input id="seed" type="number" step="1" value="12345"></div>
+      <div class="row"><label for="spf">Steps per frame</label><input id="spf" type="number" min="1" max="20" step="1" value="1"></div>
+
+      <div class="footer">Toroidal wrap; diffusion via separable Gaussian; softmax choice with angular window gating.</div>
+    </section>
+
+    <!-- Right: Display -->
+    <section class="card">
+      <canvas id="cnv" width="200" height="200"></canvas>
+    </section>
+  </main>
+
+<script type="module">
+// ========= Ready helper =========
+function onReady(fn){
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', fn, { once:true });
+  } else { fn(); }
+}
+
+onReady(() => {
+
+// ===== Utilities =====
+const TAU = Math.PI * 2;
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const mod = (n, m) => ((n % m) + m) % m;
+
+// Always-computed directional samples based on dx_for
+function computeNsamp(dxfor){
+  // MATLAB-inspired: Nsamp = 8 * round(pi * dx_for), clamped
+  const ns = 8 * Math.round(Math.PI * (Number(dxfor)||0));
+  return clamp(ns|0, 8, 120);
+}
+
+function mulberry32(seed){
+  return function(){
+    let t = seed += 0x6D2B79F5;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  }
+}
+
+function angleDiff(a){
+  let x = (a + Math.PI) % (2*Math.PI);
+  if (x < 0) x += 2*Math.PI;
+  return x - Math.PI;
+}
+
+function softmaxStable(arr, temperature){
+  const invT = 1 / temperature;
+  let maxv = -Infinity;
+  for (let i=0;i<arr.length;i++){ if (arr[i] > maxv) maxv = arr[i]; }
+  let s = 0;
+  const out = new Float32Array(arr.length);
+  for (let i=0;i<arr.length;i++){ const v = Math.exp((arr[i] - maxv) * invT); out[i] = v; s += v; }
+  const invS = 1/s;
+  for (let i=0;i<out.length;i++) out[i] *= invS;
+  return out;
+}
+
+function sampleFromProbs(rng, probs){
+  let r = rng();
+  let c = 0;
+  for (let i=0;i<probs.length;i++){ c += probs[i]; if (r <= c) return i; }
+  return probs.length - 1;
+}
+
+function buildGaussian1D(D){
+  if (D <= 0) return new Float32Array([1]);
+  let size = Math.max(3, Math.round(7*D + 2));
+  if (size % 2 === 0) size = Math.max(3, Math.round(7*D + 1));
+  const half = (size - 1) / 2;
+  const g = new Float32Array(size);
+  let sum = 0;
+  for (let i=0;i<size;i++){
+    const x = i - half;
+    const v = Math.exp(- (x*x) / (4*D));
+    g[i] = v; sum += v;
+  }
+  for (let i=0;i<size;i++) g[i] /= sum;
+  return g;
+}
+
+function convolveToroidalSeparable(src, L, kernel){
+  if (kernel.length === 1) return src.slice();
+  const outH = new Float32Array(L*L);
+  const outV = new Float32Array(L*L);
+  const k = kernel; const K = k.length; const half = (K-1)/2;
+  for (let y=0;y<L;y++){
+    const rowOff = y*L;
+    for (let x=0;x<L;x++){
+      let acc = 0;
+      for (let i=0;i<K;i++){
+        const xi = mod(x + i - half, L);
+        acc += k[i] * src[rowOff + xi];
+      }
+      outH[rowOff + x] = acc;
+    }
+  }
+  for (let y=0;y<L;y++){
+    for (let x=0;x<L;x++){
+      let acc = 0;
+      for (let i=0;i<K;i++){
+        const yi = mod(y + i - half, L);
+        acc += k[i] * outH[yi*L + x];
+      }
+      outV[y*L + x] = acc;
+    }
+  }
+  return outV;
+}
+
+// Colormap: MATLAB 'hot'
+function hotRGB(v){
+  v = Math.max(0, Math.min(1, v));
+  let r=0, g=0, b=0;
+  if (v < 1/3){ r = 3*v; }
+  else if (v < 2/3){ r = 1; g = 3*v - 1; }
+  else { r = 1; g = 1; b = 3*v - 2; }
+  return [Math.round(255*r), Math.round(255*g), Math.round(255*b)];
+}
+
+function hexToRGB(hex){
+  let c = (hex||'').toString().trim();
+  if (c[0] === '#') c = c.slice(1);
+  if (c.length === 3) c = c.split('').map(ch=>ch+ch).join('');
+  const n = parseInt(c || '00ffff', 16);
+  return [(n>>16)&255, (n>>8)&255, n&255];
+}
+
+class AntSim{
+  constructor(canvas){
+    this.c = canvas;
+    this.ctx = canvas.getContext('2d', { willReadFrequently: false });
+    this.running = false;
+    this.frame = 0; this.fps = 0; this._fpsTick = performance.now();
+  }
+  paramsFromUI(){
+    const get = id=>document.getElementById(id);
+    const valN = id=>Number(get(id).value);
+    const L = clamp(valN('L')|0, 32, 1024);
+    const dx_for = Number(document.getElementById('dxfor').value);
+    const Nsamp = computeNsamp(dx_for);
+    return {
+      Nants: clamp(valN('Nants')|0, 1, 5000),
+      L,
+      dx: Number(document.getElementById('dx').value),
+      dx_for,
+      Nsamp,
+      dp: Number(document.getElementById('dp').value),
+      dpdt: Number(document.getElementById('dpdt').value),
+      D: Number(document.getElementById('D').value),      T: Number(document.getElementById('T').value),
+      theta_win: Number(document.getElementById('theta').value),
+      beta: Number(document.getElementById('beta').value),
+      pher_sat: Number(document.getElementById('sat').value),
+      attq: document.getElementById('attq').checked,
+      drawAnts: document.getElementById('drawAnts').checked,
+      antColor: get('antColor').value,
+      stepsPerFrame: clamp(valN('spf')|0, 1, 100),
+      scale: clamp(valN('scale')|0, 1, 20),
+      seed: valN('seed')|0,
+      att_size: clamp(valN('att_size')|0, 11, 101),
+      Datt: Math.max(1, valN('Datt')),
+      Datt_mag: Math.max(0, valN('Datt_mag'))
+    };
+  }
+  init(){
+    this.p = this.paramsFromUI();
+    this.c.width = this.p.L; this.c.height = this.p.L;
+    this.c.style.width = (this.p.L * this.p.scale) + 'px';
+    this.c.style.height = (this.p.L * this.p.scale) + 'px';
+    this.ctx.imageSmoothingEnabled = false;
+    this.antColorRGB = hexToRGB(this.p.antColor || '#00ffff');
+    this.rng = mulberry32(this.p.seed || 1);
+    const Ns = this.p.Nsamp;
+    this.theta_vec = new Float32Array(Ns);
+    this.cos_th = new Float32Array(Ns);
+    this.sin_th = new Float32Array(Ns);
+    for (let k=0;k<Ns;k++){ const th = k*TAU/Ns; this.theta_vec[k]=th; this.cos_th[k]=Math.cos(th); this.sin_th[k]=Math.sin(th); }
+    const L = this.p.L; const N = L*L; this.pher = new Float32Array(N); this.pher.fill(0);
+    const A = this.p.Nants; this.ax = new Float32Array(A); this.ay = new Float32Array(A); this.at = new Float32Array(A);
+    for (let i=0;i<A;i++){ this.ax[i] = this.rng()*(L-2)+1; this.ay[i] = this.rng()*(L-2)+1; this.at[i] = this.rng()*TAU; }
+    this.gk = buildGaussian1D(this.p.D);
+    this.attKernel = this.buildAttractorKernel(this.p.att_size, this.p.Datt, this.p.Datt_mag * this.p.dp);
+    this.depositPheromone(this.ax, this.ay, this.p.dp);
+    if (this.p.attq) this.depositAttractors();
+    if (this.p.D > 0) this.pher = convolveToroidalSeparable(this.pher, L, this.gk);
+    this.applyDecay();
+    this.frame = 0; this._accumFrames = 0; this._fpsTick = performance.now();
+    this.render();
+  }
+  index(x,y){ return (y|0)*this.p.L + (x|0); }
+  bilinearSample(x,y){
+    const L = this.p.L;
+    const x0 = Math.floor(x), y0 = Math.floor(y);
+    const x1 = mod(x0+1, L), y1 = mod(y0+1, L);
+    const fx = x - x0, fy = y - y0;
+    const w1 = fx*fy, w2 = (1-fx)*fy, w3=(1-fx)*(1-fy), w4=fx*(1-fy);
+    const i11 = this.index(mod(x1,L), mod(y1,L));
+    const i21 = this.index(mod(x0,L), mod(y1,L));
+    const i31 = this.index(mod(x0,L), mod(y0,L));
+    const i41 = this.index(mod(x1,L), mod(y0,L));
+    return this.pher[i11]*w1 + this.pher[i21]*w2 + this.pher[i31]*w3 + this.pher[i41]*w4;
+  }
+  depositPheromone(xs, ys, amount){
+    const L = this.p.L; const N = xs.length;
+    for (let j=0;j<N;j++){
+      const x = xs[j], y = ys[j];
+      const x0 = Math.floor(x), y0 = Math.floor(y);
+      const x1 = mod(x0+1, L), y1 = mod(y0+1, L);
+      const fx = x - x0, fy = y - y0;
+      const w1 = fx*fy, w2 = (1-fx)*fy, w3=(1-fx)*(1-fy), w4=fx*(1-fy);
+      this.pher[this.index(x1,y1)] += amount*w1;
+      this.pher[this.index(x0,y1)] += amount*w2;
+      this.pher[this.index(x0,y0)] += amount*w3;
+      this.pher[this.index(x1,y0)] += amount*w4;
+    }
+  }
+  applyDecay(){
+    const decay = Math.exp(-this.p.dpdt);
+    const arr = this.pher; const n = arr.length;
+    for (let i=0;i<n;i++) arr[i] *= decay;
+  }
+  buildAttractorKernel(size, Datt, scale){
+    const S = (size % 2 === 1) ? size : (size+1);
+    const half = (S-1)/2;
+    const k = new Float32Array(S*S);
+    let minv = Infinity; let idx=0;
+    for (let y=-half;y<=half;y++){
+      for (let x=-half;x<=half;x++){
+        const v = Math.exp(-(x*x + y*y)/(4*Datt));
+        k[idx++] = v; if (v < minv) minv = v;
+      }
+    }
+    let sum=0; for (let i=0;i<k.length;i++){ k[i] -= minv; sum += k[i]; }
+    const norm = scale / sum;
+    for (let i=0;i<k.length;i++) k[i] *= norm;
+    return { data:k, size:S, half };
+  }
+  rebuildSampling(Ns){
+    this.p.Nsamp = Ns|0;
+    const n = this.p.Nsamp;
+    this.theta_vec = new Float32Array(n);
+    this.cos_th = new Float32Array(n);
+    this.sin_th = new Float32Array(n);
+    for (let k=0;k<n;k++){
+      const th = k*TAU/n; this.theta_vec[k]=th; this.cos_th[k]=Math.cos(th); this.sin_th[k]=Math.sin(th);
+    }
+  }
+  stampKernel(cx, cy, kernel){
+    const L = this.p.L; const S = kernel.size; const half = kernel.half; const data = kernel.data;
+    let t=0;
+    for (let dy=-half; dy<=half; dy++){
+      const y = mod(Math.round(cy)+dy, L);
+      for (let dx=-half; dx<=half; dx++){
+        const x = mod(Math.round(cx)+dx, L);
+        this.pher[this.index(x,y)] += data[t++];
+      }
+    }
+  }
+  depositAttractors(){
+    const L = this.p.L;
+    const c = [ [L/4, L/4], [3*L/4, 3*L/4], [3*L/4, L/4], [L/4, 3*L/4] ];
+    for (const [x,y] of c) this.stampKernel(x,y,this.attKernel);
+  }
+  step(){
+    const A = this.p.Nants; const Ns = this.p.Nsamp; const L = this.p.L;
+    const { dx, dx_for, T, beta, theta_win, dp } = this.p;
+
+    const probs = new Float32Array(Ns);
+
+    for (let j=0;j<A;j++){
+      const x1 = this.ax[j];
+      const y1 = this.ay[j];
+      const th0 = this.at[j];
+
+      const xf = mod(x1 + dx_for*Math.cos(th0), L);
+      const yf = mod(y1 + dx_for*Math.sin(th0), L);
+
+      for (let k=0;k<Ns;k++){
+        const xt = mod(xf + dx*this.cos_th[k], L);
+        const yt = mod(yf + dx*this.sin_th[k], L);
+        const pher = this.bilinearSample(xt, yt);
+        const dth = Math.abs(angleDiff(th0 - this.theta_vec[k]));
+        const gate = 1/(1 + Math.exp(-beta*(dth + theta_win/2))) * 1/(1 + Math.exp(beta*(dth - theta_win/2)));
+        probs[k] = pher * gate;
+      }
+
+      const P = softmaxStable(probs, T);
+      const choice = sampleFromProbs(this.rng, P);
+      const thNow = this.theta_vec[choice];
+
+      const x2 = mod(x1 + dx*Math.cos(thNow), L);
+      const y2 = mod(y1 + dx*Math.sin(thNow), L);
+      this.ax[j] = x2; this.ay[j] = y2; this.at[j] = thNow;
+    }
+
+    this.depositPheromone(this.ax, this.ay, dp);
+
+    if (this.p.attq) this.depositAttractors();
+
+    if (this.p.D > 0){
+      this.pher = convolveToroidalSeparable(this.pher, L, this.gk);
+    }
+
+    this.applyDecay();
+
+    this.frame++;
+  }
+  render(){
+    const L = this.p.L; const imd = this.ctx.createImageData(L, L);
+    const buf = imd.data; const sat = this.p.pher_sat; const arr = this.pher;
+    for (let i=0, p=0;i<arr.length;i++, p+=4){
+      const v = 1 - Math.exp(-arr[i] / sat);
+      const [r,g,b] = hotRGB(v);
+      buf[p]=r; buf[p+1]=g; buf[p+2]=b; buf[p+3]=255;
+    }
+    if (this.p.drawAnts){
+      const c = this.antColorRGB || [0,255,255];
+      const ar=c[0], ag=c[1], ab=c[2];
+      for (let i=0;i<this.p.Nants;i++){
+        const x0 = this.ax[i]|0, y0 = this.ay[i]|0;
+        const idx = 4 * (y0*L + x0);
+        buf[idx]=ar; buf[idx+1]=ag; buf[idx+2]=ab; buf[idx+3]=255;
+      }
+    }
+    this.ctx.putImageData(imd, 0, 0);
+
+    // Update stats if present
+    const stepEl = document.getElementById('statStep');
+    if (stepEl) stepEl.textContent = String(this.frame);
+    const fpsEl = document.getElementById('statFPS');
+    const now = performance.now();
+    this._accumFrames = (this._accumFrames||0)+1;
+    if (now - this._fpsTick > 500){
+      this.fps = Math.round(1000 * this._accumFrames / (now - this._fpsTick));
+      if (fpsEl) fpsEl.textContent = String(this.fps);
+      this._accumFrames = 0; this._fpsTick = now;
+    }
+  }
+}
+
+const cnv = document.getElementById('cnv');
+const app = new AntSim(cnv);
+let raf = null;
+let lastExportUrl = null; // keep the last object URL alive until next export
+
+function loop(){
+  if (!app.running) return;
+  const steps = app.p.stepsPerFrame;
+  for (let i=0;i<steps;i++) app.step();
+  app.render();
+  raf = requestAnimationFrame(loop);
+}
+
+function start(){ if (!app.running){ app.running = true; raf = requestAnimationFrame(loop); } }
+function pause(){ app.running = false; if (raf) cancelAnimationFrame(raf); }
+function reset(){ pause(); app.init(); }
+
+const $ = id=>document.getElementById(id);
+$('startBtn').onclick = start;
+$('pauseBtn').onclick = pause;
+$('resetBtn').onclick = reset;
+$('stepBtn').onclick = ()=>{ if (!app.running){ app.step(); app.render(); } else { app.p.stepsPerFrame = 1; } };
+$('exportBtn').onclick = ()=>{
+  const name = `ant_sim_${new Date().toISOString().replace(/[:.]/g,'-')}.png`;
+  const notice = document.getElementById('exportNotice');
+  const link = document.getElementById('exportLink');
+  const showLink = (href)=>{
+    try{ if (lastExportUrl && lastExportUrl.startsWith('blob:')) URL.revokeObjectURL(lastExportUrl); }catch(e){}
+    lastExportUrl = href;
+    link.href = href; link.setAttribute('download', name);
+    notice.style.display = 'block';
+    // Try automatic download, but leave the link visible as a fallback
+    setTimeout(()=>{ try{ link.click(); }catch(e){} }, 0);
+  };
+  try{
+    if (cnv.toBlob){
+      cnv.toBlob(blob => {
+        if (blob){ const url = URL.createObjectURL(blob); showLink(url); }
+        else { showLink(cnv.toDataURL('image/png')); }
+      }, 'image/png');
+    } else {
+      showLink(cnv.toDataURL('image/png'));
+    }
+  }catch(err){
+    console.error('Export failed:', err);
+    notice.textContent = 'Export failed. See console for details.';
+    notice.style.display = 'block';
+  }
+};
+
+// Safe event wiring for inputs that always exist in the DOM
+$('dxfor').addEventListener('change', ()=>{ const Ns = computeNsamp(Number($('dxfor').value)); app.rebuildSampling(Ns); });
+$('scale').addEventListener('change', ()=>{ const sc = clamp(Number($('scale').value)|0,1,20); const L = Number($('L').value)|0; cnv.style.width = (L*sc)+'px'; cnv.style.height = (L*sc)+'px'; });
+$('L').addEventListener('change', ()=>{ const sc = clamp(Number($('scale').value)|0,1,20); const L = Number($('L').value)|0; cnv.style.width = (L*sc)+'px'; cnv.style.height = (L*sc)+'px'; });
+
+function wireLiveControls(){
+  const $ = (id)=>document.getElementById(id);
+  const num = (id, fn) => $(id).addEventListener('input', ()=> fn(Number($(id).value)));
+  const chk = (id, fn) => $(id).addEventListener('change', ()=> fn($(id).checked));
+  const color = (id, fn) => $(id).addEventListener('input', ()=> fn($(id).value));
+  num('dpdt', v => app.p.dpdt = Math.max(0, v));
+  num('dp', v => { app.p.dp = Math.max(0, v); app.attKernel = app.buildAttractorKernel(app.p.att_size, app.p.Datt, app.p.Datt_mag * app.p.dp); });
+  num('D', v => { app.p.D = Math.max(0, v); app.gk = buildGaussian1D(app.p.D); });
+  num('T', v => app.p.T = Math.max(1e-6, v));
+  num('theta', v => app.p.theta_win = v);
+  num('beta', v => app.p.beta = v);
+  num('dx', v => app.p.dx = v);
+  num('dxfor', v => { app.p.dx_for = v; const Ns = computeNsamp(v); app.rebuildSampling(Ns); });
+  num('sat', v => app.p.pher_sat = Math.max(1, v));
+  chk('attq', v => app.p.attq = v);
+  chk('drawAnts', v => app.p.drawAnts = v);
+  color('antColor', v => app.antColorRGB = hexToRGB(v));
+  num('spf', v => app.p.stepsPerFrame = Math.max(1, v|0));
+  num('att_size', v => { app.p.att_size = v|0; app.attKernel = app.buildAttractorKernel(app.p.att_size, app.p.Datt, app.p.Datt_mag * app.p.dp); });
+  num('Datt', v => { app.p.Datt = Math.max(1, v); app.attKernel = app.buildAttractorKernel(app.p.att_size, app.p.Datt, app.p.Datt_mag * app.p.dp); });
+  num('Datt_mag', v => { app.p.Datt_mag = Math.max(0, v); app.attKernel = app.buildAttractorKernel(app.p.att_size, app.p.Datt, app.p.Datt_mag * app.p.dp); });
+}
+
+const PRESETS = [
+  { name:'A: D=0, T=0.003, θ=π/2', vals:{ L:400, Nants:500, dxfor:2, dpdt:0.00001, D:0, T:0.003, theta:Math.PI/2, beta:5, attq:false } },
+  { name:'B: D=0.01, θ=π/4', vals:{ L:400, Nants:500, dxfor:2, dpdt:0.001, D:0.01, T:0.001, theta:Math.PI/4, beta:5, attq:false } },
+  { name:'C: Strong attractors', vals:{ L:400, Nants:400, dxfor:2, dpdt:0.001, D:0.003, T:0.003, theta:Math.PI/3, beta:5, attq:true } },
+  { name:'D: Many ants, low T', vals:{ L:500, Nants:800, dxfor:2, dpdt:0.001, D:0.003, T:0.001, theta:Math.PI/2, beta:5, attq:false } },
+];
+
+function applyPreset(v){
+  const set = (id,val)=>{ const el=$(id); if (typeof el.checked === 'boolean') el.checked = !!val; else el.value = String(val); };
+  set('L', v.L); set('Nants', v.Nants); set('dxfor', v.dxfor);
+  set('dpdt', v.dpdt); set('D', v.D); set('T', v.T); set('theta', v.theta);
+  set('beta', v.beta); set('attq', v.attq);
+  reset();
+}
+
+const presetSelect = document.getElementById('presetSelect');
+const frag = document.createDocumentFragment();
+const defaultOpt = document.createElement('option');
+defaultOpt.value = '';
+defaultOpt.textContent = '— Select a preset —';
+frag.appendChild(defaultOpt);
+PRESETS.forEach((p, i) => {
+  const opt = document.createElement('option');
+  opt.value = String(i);
+  opt.textContent = p.name;
+  frag.appendChild(opt);
+});
+presetSelect.appendChild(frag);
+presetSelect.addEventListener('change', () => {
+  if (presetSelect.value === '') return;
+  const idx = Number(presetSelect.value);
+  if (!Number.isNaN(idx) && PRESETS[idx]) applyPreset(PRESETS[idx].vals);
+});
+
+app.init();
+wireLiveControls();
+
+// ===== Minimal Self-Tests (console) =====
+(function selfTests(){
+  // hotRGB endpoints
+  console.assert(JSON.stringify(hotRGB(0)) === JSON.stringify([0,0,0]), 'hotRGB(0) should be black');
+  const w = hotRGB(1); console.assert(w[0]===255 && w[1]===255 && w[2]===255, 'hotRGB(1) should be white-ish');
+  // gaussian kernel sums ~1
+  const g = buildGaussian1D(2.0); let s=0; for (let i=0;i<g.length;i++) s+=g[i]; console.assert(Math.abs(s-1)<1e-5, 'gaussian kernel normalized');
+  // identity convolution no-op
+  const arr = new Float32Array([1,2,3,4]);
+  const back = convolveToroidalSeparable(arr, 2, new Float32Array([1]));
+  console.assert(back.length===arr.length && back[0]===1 && back[3]===4, 'identity convolution');
+  // UI presence
+  console.assert(!!document.getElementById('statStep'), 'statStep should exist');
+  console.assert(!!document.getElementById('statFPS'), 'statFPS should exist');
+  console.assert(!!document.getElementById('exportBtn'), 'exportBtn should exist');
+  console.assert(!!document.getElementById('exportLink'), 'exportLink should exist');
+  console.assert(!!document.getElementById('presetSelect'), 'presetSelect should exist');
+  // Nsamp formula tests
+  console.assert(computeNsamp(0) === 8, 'Nsamp clamp min');
+  console.assert(computeNsamp(2) === 8*Math.round(Math.PI*2), 'Nsamp = 8*round(pi*dx_for)');
+  console.assert(computeNsamp(10) === 120, 'Nsamp clamp max');
+  // App consistency
+  console.assert(app.p.Nsamp === computeNsamp(app.p.dx_for), 'app Nsamp consistent with dx_for');
+  const testNs = computeNsamp(3); app.rebuildSampling(testNs); console.assert(app.theta_vec.length === testNs, 'rebuildSampling sets sampling size');
+  // Wiring present
+  console.assert(typeof document.getElementById('exportBtn').onclick === 'function', 'export onclick wired');
+})();
+
+}); // onReady
+</script>
+</body>
+</html>
