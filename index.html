@@ -83,9 +83,9 @@
 
       <h2>Display</h2>
       <div class="row"><label for="drawAnts">Draw ants</label><input id="drawAnts" type="checkbox" checked></div>
-            <div class="row"><label for="scale">Scale (px per grid cell)</label><input id="scale" type="number" min="1" max="20" step="1" value="1"></div>
+            <div class="row"><label for="scale">Scale (px per grid cell)</label><input id="scale" type="number" min="1" max="20" step="0.1" value="1.5"></div>
       <div class="row"><label for="seed">Random seed</label><input id="seed" type="number" step="1" value="12345"></div>
-      <div class="row"><label for="spf">Steps per frame</label><input id="spf" type="number" min="1" max="20" step="1" value="1"></div>
+      <div class="row"><label for="spf">Steps per frame</label><input id="spf" type="number" min="1" max="20" step="4" value="1"></div>
 
       <div class="footer">Tristan Ursell, PhD (C) 2025</div>
     </section>
@@ -253,7 +253,7 @@ class AntSim{
       pher_sat: Number(document.getElementById('sat').value),
       attq: document.getElementById('attq').checked,
       drawAnts: document.getElementById('drawAnts').checked,      stepsPerFrame: clamp(valN('spf')|0, 1, 100),
-      scale: clamp(valN('scale')|0, 1, 20),
+      scale: clamp(valN('scale'), 1, 20),
       seed: valN('seed')|0,
       Datt: Math.max(1, valN('Datt')),
       Datt_mag: Math.max(0, valN('Datt_mag'))
@@ -490,8 +490,8 @@ $('exportBtn').onclick = ()=>{
 
 // Safe event wiring for inputs that always exist in the DOM
 $('dxfor').addEventListener('change', ()=>{ const Ns = computeNsamp(Number($('dxfor').value)); app.rebuildSampling(Ns); });
-$('scale').addEventListener('change', ()=>{ const sc = clamp(Number($('scale').value)|0,1,20); const L = Number($('L').value)|0; cnv.style.width = (L*sc)+'px'; cnv.style.height = (L*sc)+'px'; });
-$('L').addEventListener('change', ()=>{ const sc = clamp(Number($('scale').value)|0,1,20); const L = Number($('L').value)|0; cnv.style.width = (L*sc)+'px'; cnv.style.height = (L*sc)+'px'; });
+$('scale').addEventListener('change', ()=>{ const sc = clamp(parseFloat($('scale').value),1,20); const L = Number($('L').value)|0; cnv.style.width = (L*sc)+'px'; cnv.style.height = (L*sc)+'px'; });
+$('L').addEventListener('change', ()=>{ const sc = clamp(parseFloat($('scale').value),1,20); const L = Number($('L').value)|0; cnv.style.width = (L*sc)+'px'; cnv.style.height = (L*sc)+'px'; });
 
 function wireLiveControls(){
   const $ = (id)=>document.getElementById(id);
