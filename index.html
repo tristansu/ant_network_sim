@@ -58,7 +58,7 @@
       </div>
 
       <!-- Presets dropdown above Core Parameters -->
-      <div class="row"><label for="presetSelect">Choose preset</label><select id="presetSelect"><option value="">— Select a preset —</option><option value="0">1. Dynamic Noodles</option><option value="1">2. Dynamic Road Networks</option><option value="2">3. Looped Network w/Attractors (play with theta)</option><option value="3">4. Fine-scale Road Networks</option></select></div>
+      <div class="row"><label for="presetSelect">Choose preset</label><select id="presetSelect"></select></div>
 
       <h2>Core Parameters</h2>
       <div class="row"><label for="Nants" title="Number of simulated ants. Higher values lower FPS."># of Ants</label><input id="Nants" type="number" min="1" max="5000" step="1" value="500"></div>
@@ -449,7 +449,7 @@ class AntSim{
     this.frame++;
   }
   render(){
-    const L = this.p.L; const arr = this.pher; const invSat = this.invSat; const px = this.px;
+    const arr = this.pher; const invSat = this.invSat; const px = this.px;
     for (let i=0;i<arr.length;i++){
       let z = arr[i] * invSat; if (z > EXP_LUT_MAX) z = EXP_LUT_MAX; else if (z < 0) z = 0;
       let vi = EXP_LUT[(z * EXP_LUT_SCALE) | 0];
@@ -556,7 +556,7 @@ function wireLiveControls(){
 
 const PRESETS = [
   {
-    name:'1. Dynamic NoodlesZ',
+    name:'1. Dynamic Noodles',
     vals:{ L:300, Nants:100, dp:1, dpdt:0.01, D:0, sat:10, det:0, T:0.01, theta:2.5, beta:5, dxfor:2, attq:false, Datt:50, Datt_mag:15, drawAnts:true, scale:2, spf:50 }
   },
   {
@@ -564,12 +564,12 @@ const PRESETS = [
     vals:{ L:300, Nants:100, dp:1, dpdt:0.003, D:0, sat:10, det:0, T:0.01, theta:0.5, beta:5, dxfor:2, attq:false, Datt:50, Datt_mag:15, drawAnts:true, scale:2, spf:50 }
   },
   {
-    name:'3. Looped Network w/Attractors #1 (play with theta)',
-    vals:{ L:300, Nants:500, dp:3, dpdt:0.003, D:0, sat:10, det:0, T:0.05, theta:2.5, beta:5, dxfor:2, attq:true, Datt:50, Datt_mag:5, drawAnts:true, scale:2, spf:20 }
+    name:'3. Looped Network w/Attractors #1',
+    vals:{ L:300, Nants:300, dp:1, dpdt:0.003, D:0, sat:10, det:0, T:0.01, theta:2.75, beta:100, dxfor:2, attq:true, Datt:50, Datt_mag:5, drawAnts:true, scale:2, spf:20 }
   },
   {
-    name:'4. Looped Network w/Attractors #2',
-    vals:{ L:300, Nants:300, dp:1, dpdt:0.003, D:0, sat:10, det:0, T:0.01, theta:2.75, beta:100, dxfor:2, attq:true, Datt:50, Datt_mag:5, drawAnts:true, scale:2, spf:20 }
+    name:'3. Looped Network w/Attractors #2 (play with theta)',
+    vals:{ L:300, Nants:500, dp:3, dpdt:0.003, D:0, sat:10, det:0, T:0.05, theta:2.5, beta:5, dxfor:2, attq:true, Datt:50, Datt_mag:5, drawAnts:true, scale:2, spf:20 }
   },
   {
     name:'5. Fine-scale Road Networks',
@@ -613,7 +613,7 @@ function applyPreset(v){
 }
 
 const presetSelect = document.getElementById('presetSelect');
-if (presetSelect.options.length <= 1) {
+function populatePresetDropdown(){
   const frag = document.createDocumentFragment();
   const defaultOpt = document.createElement('option');
   defaultOpt.value = '';
@@ -625,8 +625,9 @@ if (presetSelect.options.length <= 1) {
     opt.textContent = p.name;
     frag.appendChild(opt);
   });
-  presetSelect.appendChild(frag);
+  presetSelect.replaceChildren(frag);
 }
+populatePresetDropdown();
 
 presetSelect.addEventListener('change', () => {
   if (presetSelect.value === '') return;
@@ -654,10 +655,10 @@ function restoreUI(snap){
   APPLYING_PRESET = true;
   try{
     for (const [id,val] of Object.entries(snap.values)){
-      const el = document.getElementById(id); if (!el) continue; el.value = val;
+      const el = document.getElementById(id); if (el) el.value = val;
     }
     for (const [id,ck] of Object.entries(snap.checks)){
-      const el = document.getElementById(id); if (!el) continue; el.checked = !!ck;
+      const el = document.getElementById(id); if (el) el.checked = !!ck;
     }
     const psel = document.getElementById('presetSelect'); if (psel) psel.value = snap.preset;
   } finally {
@@ -747,6 +748,24 @@ function restoreUI(snap){
   console.assert(app.frame === 0 && app.running === false, 'preset[1] resets & does not auto-start');
   // Restore initial UI & preset after tests so runtime matches dropdown
   restoreUI(__snap);
+})();
+
+// ===== Additional Tests (added) =====
+(function moreTests(){
+  const snap = snapshotUI();
+  const sel = document.getElementById('presetSelect');
+  console.assert(sel && sel.options.length === PRESETS.length + 1, 'dropdown has placeholder + all presets');
+  const before = sel.options.length;
+  populatePresetDropdown();
+  console.assert(sel.options.length === before, 'populatePresetDropdown is idempotent (no duplicates)');
+  // Changing selection via event should reset + pause
+  sel.value = '1';
+  sel.dispatchEvent(new Event('change', { bubbles:true }));
+  console.assert(app.frame === 0 && app.running === false, 'changing preset via dropdown resets & remains paused');
+  // Placeholder text
+  console.assert(sel.options[0].textContent.includes('Select'), 'dropdown placeholder is present');
+  // restore
+  restoreUI(snap);
 })();
 
 }); // onReady
