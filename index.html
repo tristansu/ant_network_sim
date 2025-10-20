@@ -496,7 +496,7 @@ function loop(){
 
 function start(){ if (!app.running){ app.running = true; raf = requestAnimationFrame(loop); } }
 function pause(){ app.running = false; if (raf) cancelAnimationFrame(raf); }
-function reset(){ pause(); app.init(); }
+function reset(){ pause(); app.init(); const fpsEl = document.getElementById('statFPS'); if (fpsEl) fpsEl.textContent = '0.0'; }
 
 const $ = id=>document.getElementById(id);
 $('startBtn').onclick = start;
@@ -568,11 +568,11 @@ const PRESETS = [
     vals:{ L:300, Nants:500, dp:3, dpdt:0.003, D:0, sat:10, det:0, T:0.05, theta:2.5, beta:5, dxfor:2, attq:true, Datt:50, Datt_mag:5, drawAnts:true, scale:2, spf:20 }
   },
   {
-    name:'3. Looped Network w/Attractors #2',
+    name:'4. Looped Network w/Attractors #2',
     vals:{ L:300, Nants:300, dp:1, dpdt:0.003, D:0, sat:10, det:0, T:0.01, theta:2.75, beta:100, dxfor:2, attq:true, Datt:50, Datt_mag:5, drawAnts:true, scale:2, spf:20 }
   },
   {
-    name:'4. Fine-scale Road Networks',
+    name:'5. Fine-scale Road Networks',
     vals:{ L:300, Nants:300, dp:1, dpdt:0.003, D:0, sat:10, det:0, T:0.01, theta:0.5, beta:10, dxfor:2, attq:false, Datt:50, Datt_mag:15, drawAnts:true, scale:2, spf:50 }
   },
 ];
@@ -603,6 +603,12 @@ function applyPreset(v){
   } finally {
     APPLYING_PRESET = false;
   }
+  // If called programmatically (like tests), sync the dropdown selection too
+  const psel = document.getElementById('presetSelect');
+  if (psel){
+    const idx = PRESETS.findIndex(p => p.vals === v);
+    if (idx >= 0) psel.value = String(idx);
+  }
   reset();
 }
 
@@ -628,11 +634,41 @@ presetSelect.addEventListener('change', () => {
   if (!Number.isNaN(idx) && PRESETS[idx]) applyPreset(PRESETS[idx].vals);
 });
 
-app.init();
+// Initialize with the first preset by default
+presetSelect.value = '0';
+applyPreset(PRESETS[0].vals);
+// Then wire the live controls
 wireLiveControls();
+
+// Helper: snapshot/restore UI without firing listeners
+function snapshotUI(){
+  const ids = ['Nants','L','dxfor','dp','dpdt','D','sat','det','T','theta','beta','Datt','Datt_mag','scale','seed','spf'];
+  const checks = ['attq','drawAnts'];
+  const snap = { values:{}, checks:{}, preset: document.getElementById('presetSelect').value };
+  for (const id of ids){ const el = document.getElementById(id); if (el) snap.values[id] = el.value; }
+  for (const id of checks){ const el = document.getElementById(id); if (el) snap.checks[id] = !!el.checked; }
+  return snap;
+}
+function restoreUI(snap){
+  if (!snap) return;
+  APPLYING_PRESET = true;
+  try{
+    for (const [id,val] of Object.entries(snap.values)){
+      const el = document.getElementById(id); if (!el) continue; el.value = val;
+    }
+    for (const [id,ck] of Object.entries(snap.checks)){
+      const el = document.getElementById(id); if (!el) continue; el.checked = !!ck;
+    }
+    const psel = document.getElementById('presetSelect'); if (psel) psel.value = snap.preset;
+  } finally {
+    APPLYING_PRESET = false;
+  }
+  reset();
+}
 
 // ===== Minimal Self-Tests (console) =====
 (function selfTests(){
+  const __snap = snapshotUI();
   // hotRGB endpoints
   console.assert(JSON.stringify(hotRGB(0)) === JSON.stringify([0,0,0]), 'hotRGB(0) should be black');
   const w = hotRGB(1); console.assert(w[0]===255 && w[1]===255 && w[2]===255, 'hotRGB(1) should be white-ish');
@@ -661,6 +697,14 @@ wireLiveControls();
   // Wiring present
   console.assert(typeof document.getElementById('exportBtn').onclick === 'function', 'export onclick wired');
   
+  // ---- Init behavior tests ----
+  console.assert(Number(document.getElementById('L').value) === PRESETS[0].vals.L, 'init uses preset[0] - L');
+  console.assert(document.getElementById('attq').checked === PRESETS[0].vals.attq, 'init uses preset[0] - attq');
+  console.assert(Number(document.getElementById('spf').value) === PRESETS[0].vals.spf, 'init uses preset[0] - spf');
+  console.assert(document.getElementById('statFPS').textContent === '0.0', 'FPS resets to 0.0 on reset/init');
+  reset();
+  console.assert(document.getElementById('statFPS').textContent === '0.0', 'FPS resets to 0.0 after reset');
+
   // ---- Preset & reset tests ----
   const seedBefore = Number(document.getElementById('seed').value);
   applyPreset(PRESETS[0].vals);
@@ -701,6 +745,8 @@ wireLiveControls();
   applyPreset(PRESETS[1].vals);
   console.assert(Number(document.getElementById('theta').value) === PRESETS[1].vals.theta, 'preset[1] sets theta');
   console.assert(app.frame === 0 && app.running === false, 'preset[1] resets & does not auto-start');
+  // Restore initial UI & preset after tests so runtime matches dropdown
+  restoreUI(__snap);
 })();
 
 }); // onReady
