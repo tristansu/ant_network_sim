@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -54,11 +54,11 @@
       <!-- Top stats directly under buttons -->
       <div class="two-col top-stats" style="margin-top:6px">
         <div class="stat">Step: <span id="statStep">0</span></div>
-        <div class="stat">FPS: <span id="statFPS">0</span></div>
+        <div class="stat">FPS: <span id="statFPS">60.1</span></div>
       </div>
 
       <!-- Presets dropdown above Core Parameters -->
-      <div class="row"><label for="presetSelect">Choose preset</label><select id="presetSelect"></select></div>
+      <div class="row"><label for="presetSelect">Choose preset</label><select id="presetSelect"><option value="">— Select a preset —</option><option value="0">1. Dynamic Noodles</option><option value="1">2. Dynamic Road Networks</option><option value="2">3. Looped Network w/Attractors (play with theta)</option><option value="3">4. Fine-scale Road Networks</option></select></div>
 
       <h2>Core Parameters</h2>
       <div class="row"><label for="Nants" title="Number of simulated ants. Higher values lower FPS."># of Ants</label><input id="Nants" type="number" min="1" max="5000" step="1" value="500"></div>
@@ -69,9 +69,9 @@
       <div class="row"><label for="dpdt" title="Per-step exponential decay rate of pheromone.">Exp. decay rate</label><input id="dpdt" type="number" min="0" max="0.02" step="0.0005" value="0.001"></div>
       <div class="row"><label for="D" title="Pheromone diffusion coefficient in px² per step. Zero disables diffusion, and runs much faster.">Diffusion (px²/step)</label><input id="D" type="number" min="0" max="3" step="0.05" value="0"></div>
       <div class="row"><label for="sat" title="Pheromone saturation scale (1-exp(-value/saturation)) used in direction decision; limits maximum value of pheromone (sensed by ant).">Saturation (max value)</label><input id="sat" type="number" min="1" max="200" step="1" value="50"></div>
-      <div class="row"><label for="det" title="Pheromone detection limit. Values below this (after saturation mapping) are ignored for decisions & rendering. Range: 0 to Saturation (raw units).">Detection limit (≤ saturation)</label><input id="det" type="number" min="0" max="200" step="0.5" value="0"></div>
+      <div class="row"><label for="det" title="Pheromone detection limit. Values below this (after saturation mapping) are ignored for decisions &amp; rendering. Range: 0 to Saturation (raw units).">Detection limit (≤ saturation)</label><input id="det" type="number" min="0" max="200" step="0.5" value="0"></div>
 
-      <h2>Movement & Direction</h2>
+      <h2>Movement &amp; Direction</h2>
       <div class="row"><label for="T" title="Temperature parameter for stochastic direction choice. Lower → greedier; higher → more exploratory.">Decision temperature</label><input id="T" type="number" min="0.0001" max="0.02" step="0.0001" value="0.003"></div>
       <div class="row"><label for="theta" title="Angular window around current heading favored by the logistic gates.">Theta window (rad)</label><input id="theta" type="number" min="0.1" max="3.1416" step="0.05" value="0.7854"></div>
       <div class="row"><label for="beta" title="Sharpness of the logistic gates around the theta window. Higher = strict window. Lower looks more diffusive.">Window sharpness</label><input id="beta" type="number" min="1" max="20" step="0.5" value="5"></div>
@@ -93,7 +93,7 @@
 
     <!-- Right: Display -->
     <section class="card">
-      <canvas id="cnv" width="200" height="200"></canvas>
+      <canvas id="cnv" width="500" height="500" style="width: 750px; height: 750px;"></canvas>
     </section>
   </main>
 
@@ -113,22 +113,20 @@ const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const mod = (n, m) => ((n % m) + m) % m;
 
 // === Internal parameters ===
-const INTERNAL_DX = 1; // INTERNAL PARAM: sniff step (px) — was UI, now fixed. Adjust here if needed.
+const INTERNAL_DX = 1; // INTERNAL PARAM: sniff step (px)
 
 // Always-computed directional samples based on dx_for
 function computeNsamp(dxfor){
-  // MATLAB-inspired: Nsamp = 8 * round(pi * dx_for), clamped
   const ns = 8 * Math.round(Math.PI * (Number(dxfor)||0));
   return clamp(ns|0, 8, 120);
 }
 
 // Always derive attractor kernel size from diffusion width (px)
 function computeAttSize(Datt){
-  // requested: size = 3 × Datt (in pixels), force odd >= 3
   const raw = Math.max(1, Number(Datt)||1) * 3;
   let s = Math.round(raw);
   if (s < 3) s = 3;
-  if (s % 2 === 0) s += 1; // force odd for centered kernel
+  if (s % 2 === 0) s += 1; // odd
   return s;
 }
 
@@ -138,7 +136,7 @@ function mulberry32(seed){
     t = Math.imul(t ^ (t >>> 15), t | 1);
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  }
+  };
 }
 
 function angleDiff(a){
@@ -226,9 +224,9 @@ const LITTLE_ENDIAN = new Uint8Array(new Uint32Array([0x11223344]).buffer)[0] ==
 function packRGBA(r,g,b,a){
   return LITTLE_ENDIAN ? ((a<<24)|(b<<16)|(g<<8)|r) : ((r<<24)|(g<<16)|(b<<8)|a);
 }
-const COLOR_LUT = new Uint32Array(256); // hot colormap packed RGBA
+const COLOR_LUT = new Uint32Array(256);
 for (let i=0;i<256;i++){ const [r,g,b] = hotRGB(i/255); COLOR_LUT[i] = packRGBA(r,g,b,255); }
-const EXP_LUT_MAX = 8.0; // adequate since 1-exp(-8)≈0.9997
+const EXP_LUT_MAX = 8.0; // 1-exp(-8)≈0.9997
 const EXP_LUT_SIZE = 4096;
 const EXP_LUT_SCALE = (EXP_LUT_SIZE-1)/EXP_LUT_MAX;
 const EXP_LUT = new Float32Array(EXP_LUT_SIZE);
@@ -281,7 +279,7 @@ class AntSim{
     this.imd = this.ctx.createImageData(L, L);
     this.px = new Uint32Array(this.imd.data.buffer);
     this.updateDerivedSaturation();
-    this.antPacked = packRGBA(0,255,255,255); // ant color setting
+    this.antPacked = packRGBA(0,255,255,255);
     // RNG
     this.rng = mulberry32(this.p.seed || 1);
     // Directional sampling
@@ -289,8 +287,7 @@ class AntSim{
     this.theta_vec = new Float32Array(Ns);
     this.cos_th = new Float32Array(Ns);
     this.sin_th = new Float32Array(Ns);
-      // [MATLAB] evaluate Nsamp directions around the circle (theta_vec)
-      for (let k=0;k<Ns;k++){ const th = k*TAU/Ns; this.theta_vec[k]=th; this.cos_th[k]=Math.cos(th); this.sin_th[k]=Math.sin(th); }
+    for (let k=0;k<Ns;k++){ const th = k*TAU/Ns; this.theta_vec[k]=th; this.cos_th[k]=Math.cos(th); this.sin_th[k]=Math.sin(th); }
     this.probs = new Float32Array(Ns);
     // Field & ants
     const N = L*L; this.pher = new Float32Array(N); this.pher.fill(0);
@@ -338,15 +335,13 @@ class AntSim{
     const arr = this.pher; const n = arr.length;
     for (let i=0;i<n;i++) arr[i] *= decay;
   }
-  // Recompute derived saturation values (invSat and detection threshold in saturated space)
   updateDerivedSaturation(){
     this.invSat = 1 / Math.max(1e-6, this.p.pher_sat);
-    let z = this.p.pher_det * this.invSat; // convert raw threshold to z-domain
+    let z = this.p.pher_det * this.invSat;
     if (z > EXP_LUT_MAX) z = EXP_LUT_MAX; else if (z < 0) z = 0;
-    this.detSatVal = EXP_LUT[(z * EXP_LUT_SCALE) | 0]; // threshold in saturated [0,1]
+    this.detSatVal = EXP_LUT[(z * EXP_LUT_SCALE) | 0];
   }
-  buildAttractorKernel(size, Datt, scale){
-    // size is ignored in favor of Datt-driven size per requirement
+  buildAttractorKernel(_size, Datt, scale){
     const S = computeAttSize(Datt);
     const half = (S-1)/2;
     const k = new Float32Array(S*S);
@@ -364,7 +359,12 @@ class AntSim{
   }
   buildAttractorIndices(){
     const L = this.p.L; const { size:S, half } = this.attKernel;
-    const centers = [ [Math.round(L/4), Math.round(L/4)], [Math.round(3*L/4), Math.round(3*L/4)], [Math.round(3*L/4), Math.round(L/4)], [Math.round(L/4), Math.round(3*L/4)] ];
+    const centers = [
+      [Math.round(L/4), Math.round(L/4)],
+      [Math.round(3*L/4), Math.round(3*L/4)],
+      [Math.round(3*L/4), Math.round(L/4)],
+      [Math.round(L/4), Math.round(3*L/4)],
+    ];
     this.attIndexLists = centers.map(([cx,cy])=>{
       const idxs = new Uint32Array(S*S);
       let t=0;
@@ -412,13 +412,6 @@ class AntSim{
     }
   }
   step(){
-    // ===== Directional decision (MATLAB parity) =====
-    //  • Forward bias: x2 = mod(x1 + v_dx_for*cos(theta0) + v_dx*cos(theta_vec), L)
-    //  • Pheromone saturation: pher_vec_sat = 1 - exp(-pher_vec / v_pher_sat)
-    //  • Angular gate: p_vec_theta = 1/(1+exp(-β*(Δθ+θw/2))) * 1/(1+exp(β*(Δθ-θw/2)))
-    //  • Softmax @ T: temp_pvec = exp((pher_vec_sat .* p_vec_theta)/v_T); p = temp_pvec/sum(temp_pvec)
-    //  • Sample: ind = gendist(p_vec,1,1)
-
     const A = this.p.Nants; const Ns = this.p.Nsamp; const L = this.p.L;
     const { dx, dx_for, T, beta, theta_win, dp } = this.p;
     const probs = this.probs;
@@ -428,33 +421,21 @@ class AntSim{
       const vx = this.vx[j];
       const vy = this.vy[j];
       const th0 = this.at[j];
-      // [MATLAB] forward bias using v_dx_for and current heading (theta0)
       const xf = mod(x1 + dx_for*vx, L);
-      // [MATLAB] y forward bias (toroidal wrap)
       const yf = mod(y1 + dx_for*vy, L);
-      // [MATLAB] evaluate Nsamp directions around the circle (theta_vec)
       for (let k=0;k<Ns;k++){
-        // [MATLAB] test position: x2 = mod(xf + v_dx*cos(theta_vec_k), L)
         const xt = mod(xf + dx*this.cos_th[k], L);
-        // [MATLAB] test position: y2 = mod(yf + v_dx*sin(theta_vec_k), L)
         const yt = mod(yf + dx*this.sin_th[k], L);
-        // [MATLAB] bilinear interpolation of pheromone field at candidate point
         const raw = this.bilinearSample(xt, yt);
         let z = raw * this.invSat;
         if (z > EXP_LUT_MAX) z = EXP_LUT_MAX; else if (z < 0) z = 0;
         const pher = EXP_LUT[(z * EXP_LUT_SCALE) | 0];
-        // [MATLAB] Δθ = wrapToPi(theta0 - theta_k)
         const dth = Math.abs(angleDiff(th0 - this.theta_vec[k]));
-        // [MATLAB] logistic window gate around ±theta_win/2 with sharpness β
         const gate = 1/(1 + Math.exp(-beta*(dth + theta_win/2))) * 1/(1 + Math.exp(beta*(dth - theta_win/2)));
-        // [MATLAB] unnormalized preference: pher_sat .* p_vec_theta
         probs[k] = (pher < this.detSatVal ? 0 : pher) * gate;
       }
-      // [MATLAB] temp_pvec = exp((...)/T), then normalize (softmax)
       const P = softmaxStable(probs, T);
-      // [MATLAB] choice = gendist(p_vec,1,1)
       const choice = sampleFromProbs(this.rng, P);
-      // [MATLAB] commit selected direction
       const cx = this.cos_th[choice], cy = this.sin_th[choice];
       const x2 = mod(x1 + dx*cx, L);
       const y2 = mod(y1 + dx*cy, L);
@@ -469,7 +450,6 @@ class AntSim{
   }
   render(){
     const L = this.p.L; const arr = this.pher; const invSat = this.invSat; const px = this.px;
-    // Map field -> colors using LUTs
     for (let i=0;i<arr.length;i++){
       let z = arr[i] * invSat; if (z > EXP_LUT_MAX) z = EXP_LUT_MAX; else if (z < 0) z = 0;
       let vi = EXP_LUT[(z * EXP_LUT_SCALE) | 0];
@@ -486,7 +466,6 @@ class AntSim{
     }
     this.ctx.putImageData(this.imd, 0, 0);
 
-    // Update stats if present
     const stepEl = document.getElementById('statStep');
     if (stepEl) stepEl.textContent = String(this.frame);
     const fpsEl = document.getElementById('statFPS');
@@ -494,8 +473,8 @@ class AntSim{
     this._accumFrames = (this._accumFrames||0)+1;
     if (now - this._fpsTick > 500){
       const fpsExact = 1000 * this._accumFrames / (now - this._fpsTick);
-      this.fps = Math.round(fpsExact * 10) / 10; // keep as number with 0.1 precision
-      if (fpsEl) fpsEl.textContent = this.fps.toFixed(1); // display with one decimal
+      this.fps = Math.round(fpsExact * 10) / 10;
+      if (fpsEl) fpsEl.textContent = this.fps.toFixed(1);
       this._accumFrames = 0; this._fpsTick = now;
     }
   }
@@ -505,6 +484,7 @@ const cnv = document.getElementById('cnv');
 const app = new AntSim(cnv);
 let raf = null;
 let lastExportUrl = null; // keep the last object URL alive until next export
+let APPLYING_PRESET = false; // guard to prevent intermediate listeners from fighting presets
 
 function loop(){
   if (!app.running) return;
@@ -532,7 +512,6 @@ $('exportBtn').onclick = ()=>{
     lastExportUrl = href;
     if (link){ link.href = href; link.setAttribute('download', name); }
     if (notice) notice.style.display = 'block';
-    // Try automatic download, but leave the link visible as a fallback
     setTimeout(()=>{ try{ link && link.click(); }catch(e){} }, 0);
   };
   try{
@@ -551,14 +530,14 @@ $('exportBtn').onclick = ()=>{
 };
 
 // Safe event wiring for inputs that always exist in the DOM
-$('dxfor').addEventListener('change', ()=>{ const Ns = computeNsamp(Number($('dxfor').value)); app.rebuildSampling(Ns); });
-$('scale').addEventListener('change', ()=>{ const sc = clamp(parseFloat($('scale').value),1,20); const L = Number($('L').value)|0; cnv.style.width = (L*sc)+'px'; cnv.style.height = (L*sc)+'px'; });
-$('L').addEventListener('change', ()=>{ const sc = clamp(parseFloat($('scale').value),1,20); const L = Number($('L').value)|0; cnv.style.width = (L*sc)+'px'; cnv.style.height = (L*sc)+'px'; });
+$('dxfor').addEventListener('change', ()=>{ if (APPLYING_PRESET) return; const Ns = computeNsamp(Number($('dxfor').value)); app.rebuildSampling(Ns); });
+$('scale').addEventListener('change', ()=>{ if (APPLYING_PRESET) return; const sc = clamp(parseFloat($('scale').value),1,20); const L = Number($('L').value)|0; cnv.style.width = (L*sc)+'px'; cnv.style.height = (L*sc)+'px'; });
+$('L').addEventListener('change', ()=>{ if (APPLYING_PRESET) return; const sc = clamp(parseFloat($('scale').value),1,20); const L = Number($('L').value)|0; cnv.style.width = (L*sc)+'px'; cnv.style.height = (L*sc)+'px'; });
 
 function wireLiveControls(){
   const $ = (id)=>document.getElementById(id);
-  const num = (id, fn) => $(id).addEventListener('input', ()=> fn(Number($(id).value)));
-  const chk = (id, fn) => $(id).addEventListener('change', ()=> fn($(id).checked));
+  const num = (id, fn) => $(id).addEventListener('input', ()=> { if (APPLYING_PRESET) return; fn(Number($(id).value)); });
+  const chk = (id, fn) => $(id).addEventListener('change', ()=> { if (APPLYING_PRESET) return; fn($(id).checked); });
   num('dpdt', v => app.p.dpdt = Math.max(0, v));
   num('dp', v => { app.p.dp = Math.max(0, v); app.rebuildAttractorStructures(); });
   num('D', v => { app.p.D = Math.max(0, v); app.gk = buildGaussian1D(app.p.D); });
@@ -578,84 +557,67 @@ function wireLiveControls(){
 const PRESETS = [
   {
     name:'1. Dynamic Noodles',
-    vals:{
-      // Core
-      L:300, Nants:100,
-      // Pheromone
-      dp:1, dpdt:0.01, D:0, sat:10,
-      // Direction
-      T:0.01, theta: 2.5, beta:5, dxfor:2,
-      // Attractors
-      attq:false, Datt:50, Datt_mag:15,
-      // Display & run
-      drawAnts:true, scale:2, seed:12345, spf:50
-    }
+    vals:{ L:300, Nants:100, dp:1, dpdt:0.01, D:0, sat:10, det:0, T:0.01, theta:2.5, beta:5, dxfor:2, attq:false, Datt:50, Datt_mag:15, drawAnts:true, scale:2, spf:50 }
   },
   {
     name:'2. Dynamic Road Networks',
-    vals:{
-      L:300, Nants:100, 
-      dp:1, dpdt:0.003, D:0, sat:10,
-      T:0.01, theta: 0.5, beta:5, dxfor:2,
-      attq:false, Datt:50, Datt_mag:15,
-      drawAnts:true, scale:2, seed:12345,   spf:50
-    }
+    vals:{ L:300, Nants:100, dp:1, dpdt:0.003, D:0, sat:10, det:0, T:0.01, theta:0.5, beta:5, dxfor:2, attq:false, Datt:50, Datt_mag:15, drawAnts:true, scale:2, spf:50 }
   },
   {
     name:'3. Looped Network w/Attractors (play with theta)',
-    vals:{
-      L:300, Nants:500,
-      dp:3, dpdt:0.003, D:0, sat:10,
-      T:0.05, theta: 2.5, beta:5, dxfor:2,
-      attq:true, Datt:50, Datt_mag:5,
-      drawAnts:true, scale:2, seed:12345, spf: 20
-    }
+    vals:{ L:300, Nants:500, dp:3, dpdt:0.003, D:0, sat:10, det:0, T:0.05, theta:2.5, beta:5, dxfor:2, attq:true, Datt:50, Datt_mag:5, drawAnts:true, scale:2, spf:20 }
   },
   {
     name:'4. Fine-scale Road Networks',
-    vals:{
-      L:300, Nants:300, 
-      dp:1, dpdt:0.003, D:0, sat:10,
-      T:0.01, theta: 0.5, beta:10, dxfor:2,
-      attq:false, Datt:50, Datt_mag:15,
-      drawAnts:true, scale:2, seed:12345,   spf:50
-    }
+    vals:{ L:300, Nants:300, dp:1, dpdt:0.003, D:0, sat:10, det:0, T:0.01, theta:0.5, beta:10, dxfor:2, attq:false, Datt:50, Datt_mag:15, drawAnts:true, scale:2, spf:50 }
   },
 ];
 
 function applyPreset(v){
-  // Generic mapper: any key present in v will be applied to matching UI id
-  const map = {
-    Nants:'Nants', L:'L', dxfor:'dxfor',
-    dp:'dp', dpdt:'dpdt', D:'D', sat:'sat',
-    T:'T', theta:'theta', beta:'beta',
-    attq:'attq', Datt:'Datt', Datt_mag:'Datt_mag', det:'det',
-    drawAnts:'drawAnts', scale:'scale', seed:'seed', spf:'spf'
-  };
-  for (const [k,id] of Object.entries(map)){
-    if (Object.prototype.hasOwnProperty.call(v, k)){
+  APPLYING_PRESET = true;
+  try{
+    const map = {
+      Nants:'Nants', L:'L', dxfor:'dxfor',
+      dp:'dp', dpdt:'dpdt', D:'D', sat:'sat', det:'det',
+      T:'T', theta:'theta', beta:'beta',
+      attq:'attq', Datt:'Datt', Datt_mag:'Datt_mag',
+      drawAnts:'drawAnts', scale:'scale', spf:'spf'
+    };
+    for (const [k,id] of Object.entries(map)){
+      if (!Object.prototype.hasOwnProperty.call(v, k)) continue;
       const el = document.getElementById(id);
       if (!el) continue;
-      if (typeof el.checked === 'boolean') el.checked = !!v[k];
-      else el.value = String(v[k]);
+      if (el.type === 'checkbox'){
+        el.checked = !!v[k];
+        el.dispatchEvent(new Event('change', { bubbles:true }));
+      } else {
+        el.value = String(v[k]);
+        el.dispatchEvent(new Event('input', { bubbles:true }));
+        el.dispatchEvent(new Event('change', { bubbles:true }));
+      }
     }
+  } finally {
+    APPLYING_PRESET = false;
   }
   reset();
 }
 
 const presetSelect = document.getElementById('presetSelect');
-const frag = document.createDocumentFragment();
-const defaultOpt = document.createElement('option');
-defaultOpt.value = '';
-defaultOpt.textContent = '— Select a preset —';
-frag.appendChild(defaultOpt);
-PRESETS.forEach((p, i) => {
-  const opt = document.createElement('option');
-  opt.value = String(i);
-  opt.textContent = p.name;
-  frag.appendChild(opt);
-});
-presetSelect.appendChild(frag);
+if (presetSelect.options.length <= 1) {
+  const frag = document.createDocumentFragment();
+  const defaultOpt = document.createElement('option');
+  defaultOpt.value = '';
+  defaultOpt.textContent = '— Select a preset —';
+  frag.appendChild(defaultOpt);
+  PRESETS.forEach((p, i) => {
+    const opt = document.createElement('option');
+    opt.value = String(i);
+    opt.textContent = p.name;
+    frag.appendChild(opt);
+  });
+  presetSelect.appendChild(frag);
+}
+
 presetSelect.addEventListener('change', () => {
   if (presetSelect.value === '') return;
   const idx = Number(presetSelect.value);
@@ -695,13 +657,24 @@ wireLiveControls();
   // Wiring present
   console.assert(typeof document.getElementById('exportBtn').onclick === 'function', 'export onclick wired');
   
-  // ---- Added tests around presets & params ----
-  const prevL = app.p.L;
+  // ---- Preset & reset tests ----
+  const seedBefore = Number(document.getElementById('seed').value);
   applyPreset(PRESETS[0].vals);
-  console.assert(app.p.L === PRESETS[0].vals.L, 'preset should reset app and apply L');
-  console.assert(document.getElementById('attq').checked === PRESETS[0].vals.attq, 'preset should set checkbox attq');
-  console.assert(Number(document.getElementById('spf').value) === PRESETS[0].vals.spf, 'preset should set steps per frame');
-  // ensure INTERNAL_DX honored
+  console.assert(Number(document.getElementById('L').value) === PRESETS[0].vals.L, 'preset sets L input');
+  console.assert(Number(document.getElementById('Nants').value) === PRESETS[0].vals.Nants, 'preset sets Nants');
+  console.assert(Number(document.getElementById('dp').value) === PRESETS[0].vals.dp, 'preset sets dp');
+  console.assert(Number(document.getElementById('dpdt').value) === PRESETS[0].vals.dpdt, 'preset sets dpdt');
+  console.assert(Number(document.getElementById('D').value) === PRESETS[0].vals.D, 'preset sets D');
+  console.assert(Number(document.getElementById('T').value) === PRESETS[0].vals.T, 'preset sets T');
+  console.assert(Number(document.getElementById('theta').value) === PRESETS[0].vals.theta, 'preset sets theta');
+  console.assert(Number(document.getElementById('beta').value) === PRESETS[0].vals.beta, 'preset sets beta');
+  console.assert(Number(document.getElementById('dxfor').value) === PRESETS[0].vals.dxfor, 'preset sets dxfor');
+  console.assert(document.getElementById('attq').checked === PRESETS[0].vals.attq, 'preset sets checkbox attq');
+  console.assert(Number(document.getElementById('spf').value) === PRESETS[0].vals.spf, 'preset sets steps per frame');
+  console.assert(Number(document.getElementById('det').value) === PRESETS[0].vals.det, 'preset includes detection limit');
+  console.assert(app.p.L === PRESETS[0].vals.L, 'preset applies L to app params after reset');
+  console.assert(app.frame === 0 && app.running === false, 'preset triggers reset: frame=0, not running');
+  console.assert(Number(document.getElementById('seed').value) === seedBefore, 'preset should not change RNG seed');
   console.assert(app.p.dx === 1, 'INTERNAL_DX must be 1 unless changed in code');
 
   // ---- Detection limit tests ----
@@ -719,9 +692,15 @@ wireLiveControls();
   console.assert(app.px[0] === COLOR_LUT[0], 'render gate: below detection → black pixel');
   // restore
   app.p.pher_sat = oldSat; app.p.pher_det = oldDet; app.updateDerivedSaturation();
+
+  // ---- Extra: second preset sanity ----
+  applyPreset(PRESETS[1].vals);
+  console.assert(Number(document.getElementById('theta').value) === PRESETS[1].vals.theta, 'preset[1] sets theta');
+  console.assert(app.frame === 0 && app.running === false, 'preset[1] resets & does not auto-start');
 })();
 
 }); // onReady
 </script>
+
 </body>
 </html>
