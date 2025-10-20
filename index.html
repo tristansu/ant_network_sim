@@ -68,24 +68,25 @@
       <div class="row"><label for="dp" title="Pheromone deposited per ant per step.">Deposit per step (au)</label><input id="dp" type="number" min="0" max="5" step="0.1" value="1"></div>
       <div class="row"><label for="dpdt" title="Per-step exponential decay rate of pheromone.">Exp. decay rate</label><input id="dpdt" type="number" min="0" max="0.02" step="0.0005" value="0.001"></div>
       <div class="row"><label for="D" title="Pheromone diffusion coefficient in px² per step. Zero disables diffusion, and runs much faster.">Diffusion (px²/step)</label><input id="D" type="number" min="0" max="3" step="0.05" value="0"></div>
-      <div class="row"><label for="sat" title="Pheremone saturation scale (1-exp(-value/saturation)) used in direction decision; limits maximum value of pheromone (sensed by ant).">Saturation (max value)</label><input id="sat" type="number" min="1" max="200" step="1" value="50"></div>
+      <div class="row"><label for="sat" title="Pheromone saturation scale (1-exp(-value/saturation)) used in direction decision; limits maximum value of pheromone (sensed by ant).">Saturation (max value)</label><input id="sat" type="number" min="1" max="200" step="1" value="50"></div>
+      <div class="row"><label for="det" title="Pheromone detection limit. Values below this (after saturation mapping) are ignored for decisions & rendering. Range: 0 to Saturation (raw units).">Detection limit (≤ saturation)</label><input id="det" type="number" min="0" max="200" step="0.5" value="0"></div>
 
       <h2>Movement & Direction</h2>
-      <div class="row"><label for="T" title="Temperature paramter for stochastic direction choice. 0 = always highest pheromone, >> 0.1 approaching ant diffusion.">Decision temperature</label><input id="T" type="number" min="0.0001" max="0.02" step="0.0001" value="0.003"></div>
+      <div class="row"><label for="T" title="Temperature parameter for stochastic direction choice. Lower → greedier; higher → more exploratory.">Decision temperature</label><input id="T" type="number" min="0.0001" max="0.02" step="0.0001" value="0.003"></div>
       <div class="row"><label for="theta" title="Angular window around current heading favored by the logistic gates.">Theta window (rad)</label><input id="theta" type="number" min="0.1" max="3.1416" step="0.05" value="0.7854"></div>
       <div class="row"><label for="beta" title="Sharpness of the logistic gates around the theta window. Higher = strict window. Lower looks more diffusive.">Window sharpness</label><input id="beta" type="number" min="1" max="20" step="0.5" value="5"></div>
       <div class="row"><label for="dxfor" title="Forward bias distance before directional sampling.">Forward step (px)</label><input id="dxfor" type="number" min="0" max="10" step="0.5" value="2"></div>
 
       <h2>External Attractors</h2>
       <div class="row"><label for="attq" title="Adds four fixed pheromone sources in a centered square.">Include attractors (@ 4 corners)</label><input id="attq" type="checkbox"></div>
-      <div class="row"><label for="Datt" title="Attractor Gaussian width (STD).">Diffusive width (px)</label><input id="Datt" type="number" min="1" max="100" step="1" value="50"></div>
+      <div class="row"><label for="Datt" title="Attractor Gaussian width (STD). Kernel size auto = 3×Datt (odd).">Diffusive width (px)</label><input id="Datt" type="number" min="1" max="100" step="1" value="50"></div>
       <div class="row"><label for="Datt_mag" title="Attractor strength, relative to pheromone deposition rate.">Strength (relative to deposit)</label><input id="Datt_mag" type="number" min="1" max="50" step="1" value="15"></div>
 
       <h2>Display</h2>
       <div class="row"><label for="drawAnts" title="Overlay cyan dots for ant positions.">Draw ants</label><input id="drawAnts" type="checkbox" checked></div>
       <div class="row"><label for="scale" title="Scale the output image display size; supports fractional values (e.g. 1.5).">Scale (px per grid cell)</label><input id="scale" type="number" min="1" max="20" step="0.1" value="1.5"></div>
       <div class="row"><label for="seed" title="Random number generator seed for reproducible runs.">Random seed</label><input id="seed" type="number" step="1" value="12345"></div>
-      <div class="row"><label for="spf" title="Simulation steps performed per render. Lower moves slower at finer detail. Higher is not always increased simualtion speed.">Steps per frame</label><input id="spf" type="number" min="1" max="20" step="1" value="4"></div>
+      <div class="row"><label for="spf" title="Simulation steps performed per render. Lower moves slower at finer detail. Higher is not always increased simulation speed.">Steps per frame</label><input id="spf" type="number" min="1" max="20" step="1" value="4"></div>
 
       <div class="footer">Tristan Ursell, PhD (C) 2025</div>
     </section>
@@ -210,7 +211,7 @@ function convolveToroidalSeparable(src, L, kernel){
   return outV;
 }
 
-// Colormap: MATLAB 'hot'
+// Colormap: 'hot'
 function hotRGB(v){
   v = Math.max(0, Math.min(1, v));
   let r=0, g=0, b=0;
@@ -259,6 +260,7 @@ class AntSim{
       theta_win: Number(document.getElementById('theta').value),
       beta: Number(document.getElementById('beta').value),
       pher_sat: Number(document.getElementById('sat').value),
+      pher_det: Number(document.getElementById('det').value),
       attq: document.getElementById('attq').checked,
       drawAnts: document.getElementById('drawAnts').checked,
       stepsPerFrame: clamp(valN('spf')|0, 1, 100),
@@ -278,7 +280,7 @@ class AntSim{
     // fast render surfaces
     this.imd = this.ctx.createImageData(L, L);
     this.px = new Uint32Array(this.imd.data.buffer);
-    this.invSat = 1 / Math.max(1e-6, this.p.pher_sat);
+    this.updateDerivedSaturation();
     this.antPacked = packRGBA(0,255,255,255); // ant color setting
     // RNG
     this.rng = mulberry32(this.p.seed || 1);
@@ -287,7 +289,8 @@ class AntSim{
     this.theta_vec = new Float32Array(Ns);
     this.cos_th = new Float32Array(Ns);
     this.sin_th = new Float32Array(Ns);
-    for (let k=0;k<Ns;k++){ const th = k*TAU/Ns; this.theta_vec[k]=th; this.cos_th[k]=Math.cos(th); this.sin_th[k]=Math.sin(th); }
+      // [MATLAB] evaluate Nsamp directions around the circle (theta_vec)
+      for (let k=0;k<Ns;k++){ const th = k*TAU/Ns; this.theta_vec[k]=th; this.cos_th[k]=Math.cos(th); this.sin_th[k]=Math.sin(th); }
     this.probs = new Float32Array(Ns);
     // Field & ants
     const N = L*L; this.pher = new Float32Array(N); this.pher.fill(0);
@@ -334,6 +337,13 @@ class AntSim{
     const decay = Math.exp(-this.p.dpdt);
     const arr = this.pher; const n = arr.length;
     for (let i=0;i<n;i++) arr[i] *= decay;
+  }
+  // Recompute derived saturation values (invSat and detection threshold in saturated space)
+  updateDerivedSaturation(){
+    this.invSat = 1 / Math.max(1e-6, this.p.pher_sat);
+    let z = this.p.pher_det * this.invSat; // convert raw threshold to z-domain
+    if (z > EXP_LUT_MAX) z = EXP_LUT_MAX; else if (z < 0) z = 0;
+    this.detSatVal = EXP_LUT[(z * EXP_LUT_SCALE) | 0]; // threshold in saturated [0,1]
   }
   buildAttractorKernel(size, Datt, scale){
     // size is ignored in favor of Datt-driven size per requirement
@@ -402,6 +412,13 @@ class AntSim{
     }
   }
   step(){
+    // ===== Directional decision (MATLAB parity) =====
+    //  • Forward bias: x2 = mod(x1 + v_dx_for*cos(theta0) + v_dx*cos(theta_vec), L)
+    //  • Pheromone saturation: pher_vec_sat = 1 - exp(-pher_vec / v_pher_sat)
+    //  • Angular gate: p_vec_theta = 1/(1+exp(-β*(Δθ+θw/2))) * 1/(1+exp(β*(Δθ-θw/2)))
+    //  • Softmax @ T: temp_pvec = exp((pher_vec_sat .* p_vec_theta)/v_T); p = temp_pvec/sum(temp_pvec)
+    //  • Sample: ind = gendist(p_vec,1,1)
+
     const A = this.p.Nants; const Ns = this.p.Nsamp; const L = this.p.L;
     const { dx, dx_for, T, beta, theta_win, dp } = this.p;
     const probs = this.probs;
@@ -411,21 +428,33 @@ class AntSim{
       const vx = this.vx[j];
       const vy = this.vy[j];
       const th0 = this.at[j];
+      // [MATLAB] forward bias using v_dx_for and current heading (theta0)
       const xf = mod(x1 + dx_for*vx, L);
+      // [MATLAB] y forward bias (toroidal wrap)
       const yf = mod(y1 + dx_for*vy, L);
+      // [MATLAB] evaluate Nsamp directions around the circle (theta_vec)
       for (let k=0;k<Ns;k++){
+        // [MATLAB] test position: x2 = mod(xf + v_dx*cos(theta_vec_k), L)
         const xt = mod(xf + dx*this.cos_th[k], L);
+        // [MATLAB] test position: y2 = mod(yf + v_dx*sin(theta_vec_k), L)
         const yt = mod(yf + dx*this.sin_th[k], L);
+        // [MATLAB] bilinear interpolation of pheromone field at candidate point
         const raw = this.bilinearSample(xt, yt);
         let z = raw * this.invSat;
         if (z > EXP_LUT_MAX) z = EXP_LUT_MAX; else if (z < 0) z = 0;
         const pher = EXP_LUT[(z * EXP_LUT_SCALE) | 0];
+        // [MATLAB] Δθ = wrapToPi(theta0 - theta_k)
         const dth = Math.abs(angleDiff(th0 - this.theta_vec[k]));
+        // [MATLAB] logistic window gate around ±theta_win/2 with sharpness β
         const gate = 1/(1 + Math.exp(-beta*(dth + theta_win/2))) * 1/(1 + Math.exp(beta*(dth - theta_win/2)));
-        probs[k] = pher * gate;
+        // [MATLAB] unnormalized preference: pher_sat .* p_vec_theta
+        probs[k] = (pher < this.detSatVal ? 0 : pher) * gate;
       }
+      // [MATLAB] temp_pvec = exp((...)/T), then normalize (softmax)
       const P = softmaxStable(probs, T);
+      // [MATLAB] choice = gendist(p_vec,1,1)
       const choice = sampleFromProbs(this.rng, P);
+      // [MATLAB] commit selected direction
       const cx = this.cos_th[choice], cy = this.sin_th[choice];
       const x2 = mod(x1 + dx*cx, L);
       const y2 = mod(y1 + dx*cy, L);
@@ -443,7 +472,8 @@ class AntSim{
     // Map field -> colors using LUTs
     for (let i=0;i<arr.length;i++){
       let z = arr[i] * invSat; if (z > EXP_LUT_MAX) z = EXP_LUT_MAX; else if (z < 0) z = 0;
-      const vi = EXP_LUT[(z * EXP_LUT_SCALE) | 0];
+      let vi = EXP_LUT[(z * EXP_LUT_SCALE) | 0];
+      if (vi < this.detSatVal) vi = 0;
       const ci = (vi * 255 + 0.5) | 0;
       px[i] = COLOR_LUT[ci];
     }
@@ -534,8 +564,9 @@ function wireLiveControls(){
   num('T', v => app.p.T = Math.max(1e-6, v));
   num('theta', v => app.p.theta_win = v);
   num('beta', v => app.p.beta = v);
-    num('dxfor', v => { app.p.dx_for = v; const Ns = computeNsamp(v); app.rebuildSampling(Ns); });
-  num('sat', v => { app.p.pher_sat = Math.max(1, v); app.invSat = 1 / app.p.pher_sat; });
+  num('dxfor', v => { app.p.dx_for = v; const Ns = computeNsamp(v); app.rebuildSampling(Ns); });
+  num('sat', v => { app.p.pher_sat = Math.max(1, v); if (app.p.pher_det > app.p.pher_sat) app.p.pher_det = app.p.pher_sat; app.updateDerivedSaturation(); });
+  num('det', v => { app.p.pher_det = Math.max(0, Math.min(v, app.p.pher_sat)); app.updateDerivedSaturation(); });
   chk('attq', v => app.p.attq = v);
   chk('drawAnts', v => app.p.drawAnts = v);
   num('spf', v => app.p.stepsPerFrame = Math.max(1, v|0));
@@ -544,17 +575,70 @@ function wireLiveControls(){
 }
 
 const PRESETS = [
-  { name:'A: D=0, T=0.003, θ=π/2', vals:{ L:400, Nants:500, dxfor:2, dpdt:0.00001, D:0, T:0.003, theta:Math.PI/2, beta:5, attq:false } },
-  { name:'B: D=0.01, θ=π/4', vals:{ L:400, Nants:500, dxfor:2, dpdt:0.001, D:0.01, T:0.001, theta:Math.PI/4, beta:5, attq:false } },
-  { name:'C: Strong attractors', vals:{ L:400, Nants:400, dxfor:2, dpdt:0.001, D:0.003, T:0.003, theta:Math.PI/3, beta:5, attq:true } },
-  { name:'D: Many ants, low T', vals:{ L:500, Nants:800, dxfor:2, dpdt:0.001, D:0.003, T:0.001, theta:Math.PI/2, beta:5, attq:false } },
+  {
+    name:'A: Baseline (D=0, T=0.003, θ=π/2)',
+    vals:{
+      // Core
+      L:400, Nants:500, dxfor:2,
+      // Pheromone
+      dp:1, dpdt:0.00001, D:0, sat:50,
+      // Direction
+      T:0.003, theta:Math.PI/2, beta:5,
+      // Attractors
+      attq:false, Datt:50, Datt_mag:15,
+      // Display & run
+      drawAnts:true, scale:1.5, seed:12345, spf:4
+    }
+  },
+  {
+    name:'B: Light diffusion (D=0.01, θ=π/4)',
+    vals:{
+      L:400, Nants:500, dxfor:2,
+      dp:1, dpdt:0.001, D:0.01, sat:50,
+      T:0.001, theta:Math.PI/4, beta:5,
+      attq:false, Datt:50, Datt_mag:15,
+      drawAnts:true, scale:1.5, seed:12345, spf:4
+    }
+  },
+  {
+    name:'C: Strong attractors',
+    vals:{
+      L:400, Nants:400, dxfor:2,
+      dp:1, dpdt:0.001, D:0.003, sat:50,
+      T:0.003, theta:Math.PI/3, beta:5,
+      attq:true, Datt:50, Datt_mag:25,
+      drawAnts:true, scale:1.5, seed:12345, spf:6
+    }
+  },
+  {
+    name:'D: Many ants, low T',
+    vals:{
+      L:500, Nants:800, dxfor:2,
+      dp:1, dpdt:0.001, D:0.003, sat:60,
+      T:0.001, theta:Math.PI/2, beta:5,
+      attq:false, Datt:50, Datt_mag:15,
+      drawAnts:true, scale:1.5, seed:12345, spf:8
+    }
+  }
 ];
 
 function applyPreset(v){
-  const set = (id,val)=>{ const el=$(id); if (typeof el.checked === 'boolean') el.checked = !!val; else el.value = String(val); };
-  set('L', v.L); set('Nants', v.Nants); set('dxfor', v.dxfor);
-  set('dpdt', v.dpdt); set('D', v.D); set('T', v.T); set('theta', v.theta);
-  set('beta', v.beta); set('attq', v.attq);
+  // Generic mapper: any key present in v will be applied to matching UI id
+  const map = {
+    Nants:'Nants', L:'L', dxfor:'dxfor',
+    dp:'dp', dpdt:'dpdt', D:'D', sat:'sat',
+    T:'T', theta:'theta', beta:'beta',
+    attq:'attq', Datt:'Datt', Datt_mag:'Datt_mag', det:'det',
+    drawAnts:'drawAnts', scale:'scale', seed:'seed', spf:'spf'
+  };
+  for (const [k,id] of Object.entries(map)){
+    if (Object.prototype.hasOwnProperty.call(v, k)){
+      const el = document.getElementById(id);
+      if (!el) continue;
+      if (typeof el.checked === 'boolean') el.checked = !!v[k];
+      else el.value = String(v[k]);
+    }
+  }
   reset();
 }
 
@@ -609,6 +693,31 @@ wireLiveControls();
   const testNs = computeNsamp(3); app.rebuildSampling(testNs); console.assert(app.theta_vec.length === testNs, 'rebuildSampling sets sampling size');
   // Wiring present
   console.assert(typeof document.getElementById('exportBtn').onclick === 'function', 'export onclick wired');
+  
+  // ---- Added tests around presets & params ----
+  const prevL = app.p.L;
+  applyPreset(PRESETS[0].vals);
+  console.assert(app.p.L === PRESETS[0].vals.L, 'preset should reset app and apply L');
+  console.assert(document.getElementById('attq').checked === PRESETS[0].vals.attq, 'preset should set checkbox attq');
+  console.assert(Number(document.getElementById('spf').value) === PRESETS[0].vals.spf, 'preset should set steps per frame');
+  // ensure INTERNAL_DX honored
+  console.assert(app.p.dx === 1, 'INTERNAL_DX must be 1 unless changed in code');
+
+  // ---- Detection limit tests ----
+  console.assert(typeof app.detSatVal === 'number', 'detSatVal should be computed');
+  const oldSat = app.p.pher_sat, oldDet = app.p.pher_det;
+  app.p.pher_sat = 50; app.p.pher_det = 10; app.updateDerivedSaturation();
+  console.assert(app.detSatVal > 0 && app.detSatVal < 1, 'detSatVal in (0,1)');
+  const prevDetSat = app.detSatVal;
+  app.p.pher_det = 20; app.updateDerivedSaturation();
+  console.assert(app.detSatVal > prevDetSat, 'detSatVal increases with detection limit');
+  // rendering gate sanity: set a low signal below threshold → pixel black
+  app.p.pher_det = 5; app.p.pher_sat = 10; app.updateDerivedSaturation();
+  app.pher.fill(0); app.pher[0] = 1; // 1 au, sat ~ 0.095, below det ~ 0.393
+  app.render();
+  console.assert(app.px[0] === COLOR_LUT[0], 'render gate: below detection → black pixel');
+  // restore
+  app.p.pher_sat = oldSat; app.p.pher_det = oldDet; app.updateDerivedSaturation();
 })();
 
 }); // onReady
