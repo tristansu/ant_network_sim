@@ -493,8 +493,9 @@ class AntSim{
     const now = performance.now();
     this._accumFrames = (this._accumFrames||0)+1;
     if (now - this._fpsTick > 500){
-      this.fps = Math.round(1000 * this._accumFrames / (now - this._fpsTick));
-      if (fpsEl) fpsEl.textContent = String(this.fps);
+      const fpsExact = 1000 * this._accumFrames / (now - this._fpsTick);
+      this.fps = Math.round(fpsExact * 10) / 10; // keep as number with 0.1 precision
+      if (fpsEl) fpsEl.textContent = this.fps.toFixed(1); // display with one decimal
       this._accumFrames = 0; this._fpsTick = now;
     }
   }
