@@ -577,44 +577,44 @@ function wireLiveControls(){
 
 const PRESETS = [
   {
-    name:'A: Baseline (D=0, T=0.003, θ=π/2)',
+    name:'1. Dynamic Noodles',
     vals:{
       // Core
-      L:400, Nants:500, dxfor:2,
+      L:300, Nants:100,
       // Pheromone
-      dp:1, dpdt:0.00001, D:0, sat:50,
+      dp:1, dpdt:0.01, D:0, sat:10,
       // Direction
-      T:0.003, theta:Math.PI/2, beta:5,
+      T:0.01, theta:Math.PI/2, beta:5, dxfor:2,
       // Attractors
       attq:false, Datt:50, Datt_mag:15,
       // Display & run
-      drawAnts:true, scale:1.5, seed:12345, spf:4
+      drawAnts:true, scale:2, seed:12345, spf:50
     }
   },
   {
-    name:'B: Light diffusion (D=0.01, θ=π/4)',
+    name:'2. Dynamic Road Networks',
     vals:{
-      L:400, Nants:500, dxfor:2,
-      dp:1, dpdt:0.001, D:0.01, sat:50,
-      T:0.001, theta:Math.PI/4, beta:5,
+      L:300, Nants:100, 
+      dp:1, dpdt:0.003, D:0, sat:10,
+      T:0.01, theta: 0.5, beta:5, dxfor:2,
       attq:false, Datt:50, Datt_mag:15,
-      drawAnts:true, scale:1.5, seed:12345, spf:4
+      drawAnts:true, scale:2, seed:12345,   spf:50
     }
   },
   {
-    name:'C: Strong attractors',
+    name:'3. Looped Network w/Attractors (play with theta)',
     vals:{
-      L:400, Nants:400, dxfor:2,
-      dp:1, dpdt:0.001, D:0.003, sat:50,
-      T:0.003, theta:Math.PI/3, beta:5,
-      attq:true, Datt:50, Datt_mag:25,
-      drawAnts:true, scale:1.5, seed:12345, spf:6
+      L:300, Nants:500,
+      dp:3, dpdt:0.003, D:0, sat:10,
+      T:0.05, theta: 2.5, beta:5, dxfor:2,
+      attq:true, Datt:50, Datt_mag:5,
+      drawAnts:true, scale:2, seed:12345, spf: 20
     }
   },
   {
     name:'D: Many ants, low T',
     vals:{
-      L:500, Nants:800, dxfor:2,
+      L:300, Nants:500, dxfor:2,
       dp:1, dpdt:0.001, D:0.003, sat:60,
       T:0.001, theta:Math.PI/2, beta:5,
       attq:false, Datt:50, Datt_mag:15,
