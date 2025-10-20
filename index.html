@@ -584,7 +584,7 @@ const PRESETS = [
       // Pheromone
       dp:1, dpdt:0.01, D:0, sat:10,
       // Direction
-      T:0.01, theta:Math.PI/2, beta:5, dxfor:2,
+      T:0.01, theta: 2.5, beta:5, dxfor:2,
       // Attractors
       attq:false, Datt:50, Datt_mag:15,
       // Display & run
@@ -612,15 +612,15 @@ const PRESETS = [
     }
   },
   {
-    name:'D: Many ants, low T',
+    name:'4. Fine-scale Road Networks',
     vals:{
-      L:300, Nants:500, dxfor:2,
-      dp:1, dpdt:0.001, D:0.003, sat:60,
-      T:0.001, theta:Math.PI/2, beta:5,
+      L:300, Nants:300, 
+      dp:1, dpdt:0.003, D:0, sat:10,
+      T:0.01, theta: 0.5, beta:10, dxfor:2,
       attq:false, Datt:50, Datt_mag:15,
-      drawAnts:true, scale:1.5, seed:12345, spf:8
+      drawAnts:true, scale:2, seed:12345,   spf:50
     }
-  }
+  },
 ];
 
 function applyPreset(v){
