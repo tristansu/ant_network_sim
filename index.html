@@ -214,15 +214,7 @@
               value="60"
             />
           </div>
-
-          <div class="row">
-            <label
-              for="recPreferMp4"
-              title="Try to record MP4 (H.264) if supported. Fallback to WebM if not."
-              >Prefer MP4 (H.264)</label
-            >
-            <input id="recPreferMp4" type="checkbox" checked />
-          </div>
+          <!-- Prefer MP4 checkbox removed; MP4 is now always preferred in code -->
         </div>
 
         <div
@@ -1150,7 +1142,8 @@
             }
             const fps = clamp(Number($('recFps').value) || 60, 1, 120),
               stream = cnv.captureStream(fps),
-              mime = pickMimeType($('recPreferMp4').checked);
+              // Always prefer MP4 now; WebM fallback remains inside pickMimeType
+              mime = pickMimeType(true);
             if (!mime) {
               setRecNotice('MediaRecorder not supported for MP4/WebM in this browser.');
               return;
