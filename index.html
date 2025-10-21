@@ -1,779 +1,1640 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Ant Path Simulator — Interactive</title>
-  <style>
-    :root{ --bg:#0e0f12; --panel:#14161b; --muted:#8a93a8; --text:#e8ebf2; --accent:#6ee7ff; --accent2:#a78bfa; --good:#86efac; --warn:#fbbf24; --danger:#fb7185; --grid-gap:14px; --radius:14px }
-    *{box-sizing:border-box}
-    body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
-    .header{padding:var(--grid-gap);padding-bottom:0}
-    .header h1{margin:0 0 6px 0;font-size:22px}
-    .note{font-size:12px;color:#9aa3b7}
-    .wrap{display:grid;grid-template-columns:360px 1fr;gap:var(--grid-gap);padding:var(--grid-gap);padding-top:8px;align-items:start}
-    .card{background:var(--panel);border-radius:var(--radius);box-shadow:0 10px 30px rgba(0,0,0,.35);padding:16px}
-    h2{font-size:14px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:16px 0 8px}
-    .row{display:flex;gap:8px;align-items:center;margin:6px 0}
-    .row label{flex:0 1 46%;min-width:0;font-size:13px;color:#c6cbd8}
-    .row label[title]{text-decoration: underline dotted; cursor: help}
-    .row input[type="number"], .row input[type="text"], .row select{flex:1 1 54%;min-width:0;width:100%;background:#0c0d10;border:1px solid #252a33;color:var(--text);border-radius:10px;padding:6px 8px}
-    .row input[type="checkbox"]{transform:scale(1.1)}
-    .btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;align-items:center}
-    .btns button{white-space:nowrap;flex:0 0 auto}
-    button{background:#11141a;border:1px solid #2a3040;color:#fff;padding:8px 12px;border-radius:12px;cursor:pointer}
-    button:hover{border-color:#3a4258}
-    button.primary{background:linear-gradient(90deg,var(--accent),var(--accent2));color:#0b0d12;border:none}
-    .two-col{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-    .stat{font-variant-numeric:tabular-nums;color:#b9c1d8;font-size:12px}
-    canvas{image-rendering:pixelated;image-rendering:crisp-edges;border-radius:16px;border:1px solid #222630;background:#000}
-    .footer{color:#7e879a;font-size:12px;margin-top:12px}
-    a.btn-link{color:var(--accent)}
-  </style>
-</head>
-<body>
-  <header class="header">
-    <h1>Ant Path Simulator</h1>
-    <div class="note">See this PDF for basic explanation of the model.</div>
-  </header>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ant Path Simulator — Interactive</title>
 
-  <main class="wrap">
-    <!-- Left: Controls -->
-    <section class="card">
-      <div class="btns top-controls">
-        <button class="primary" id="startBtn">Start</button>
-        <button id="pauseBtn">Pause</button>
-        <button id="resetBtn">Reset</button>
-        <button id="stepBtn">Step</button>
-      </div>
-      <div class="btns" id="exportRow">
-        <button id="exportBtn">Export PNG</button>
-        <div id="exportNotice" class="note" style="display:none;margin-top:6px">Click <a id="exportLink" class="btn-link" download>Download PNG</a>.</div>
-      </div>
-
-      <!-- Top stats directly under buttons -->
-      <div class="two-col top-stats" style="margin-top:6px">
-        <div class="stat">Step: <span id="statStep">0</span></div>
-        <div class="stat">FPS: <span id="statFPS">60.1</span></div>
-      </div>
-
-      <!-- Presets dropdown above Core Parameters -->
-      <div class="row"><label for="presetSelect">Choose preset</label><select id="presetSelect"></select></div>
-
-      <h2>Core Parameters</h2>
-      <div class="row"><label for="Nants" title="Number of simulated ants. Higher values lower FPS."># of Ants</label><input id="Nants" type="number" min="1" max="5000" step="1" value="500"></div>
-      <div class="row"><label for="L" title="Width/height of the simulation grid.">Grid size (px)</label><input id="L" type="number" min="64" max="1024" step="16" value="500"></div>
-
-      <h2>Pheromone Settings</h2>
-      <div class="row"><label for="dp" title="Pheromone deposited per ant per step.">Deposit per step (au)</label><input id="dp" type="number" min="0" max="5" step="0.1" value="1"></div>
-      <div class="row"><label for="dpdt" title="Per-step exponential decay rate of pheromone.">Exp. decay rate</label><input id="dpdt" type="number" min="0" max="0.02" step="0.0005" value="0.001"></div>
-      <div class="row"><label for="D" title="Pheromone diffusion coefficient in px² per step. Zero disables diffusion, and runs much faster.">Diffusion (px²/step)</label><input id="D" type="number" min="0" max="3" step="0.05" value="0"></div>
-      <div class="row"><label for="sat" title="Pheromone saturation scale (1-exp(-value/saturation)) used in direction decision; limits maximum value of pheromone (sensed by ant).">Saturation (max value)</label><input id="sat" type="number" min="1" max="200" step="1" value="50"></div>
-      <div class="row"><label for="det" title="Pheromone detection limit. Values below this (after saturation mapping) are ignored for decisions &amp; rendering. Range: 0 to Saturation (raw units).">Detection limit (≤ saturation)</label><input id="det" type="number" min="0" max="200" step="0.5" value="0"></div>
-
-      <h2>Movement &amp; Direction</h2>
-      <div class="row"><label for="T" title="Temperature parameter for stochastic direction choice. Lower → greedier; higher → more exploratory.">Decision temperature</label><input id="T" type="number" min="0.0001" max="0.02" step="0.0001" value="0.003"></div>
-      <div class="row"><label for="theta" title="Angular window around current heading favored by the logistic gates.">Theta window (rad)</label><input id="theta" type="number" min="0.1" max="3.1416" step="0.05" value="0.7854"></div>
-      <div class="row"><label for="beta" title="Sharpness of the logistic gates around the theta window. Higher = strict window. Lower looks more diffusive.">Window sharpness</label><input id="beta" type="number" min="1" max="20" step="0.5" value="5"></div>
-      <div class="row"><label for="dxfor" title="Forward bias distance before directional sampling.">Forward step (px)</label><input id="dxfor" type="number" min="0" max="10" step="0.5" value="2"></div>
-
-      <h2>External Attractors</h2>
-      <div class="row"><label for="attq" title="Adds four fixed pheromone sources in a centered square.">Include attractors (@ 4 corners)</label><input id="attq" type="checkbox"></div>
-      <div class="row"><label for="Datt" title="Attractor Gaussian width (STD). Kernel size auto = 3×Datt (odd).">Diffusive width (px)</label><input id="Datt" type="number" min="1" max="100" step="1" value="50"></div>
-      <div class="row"><label for="Datt_mag" title="Attractor strength, relative to pheromone deposition rate.">Strength (relative to deposit)</label><input id="Datt_mag" type="number" min="1" max="50" step="1" value="15"></div>
-
-      <h2>Display</h2>
-      <div class="row"><label for="drawAnts" title="Overlay cyan dots for ant positions.">Draw ants</label><input id="drawAnts" type="checkbox" checked></div>
-      <div class="row"><label for="scale" title="Scale the output image display size; supports fractional values (e.g. 1.5).">Scale (px per grid cell)</label><input id="scale" type="number" min="1" max="20" step="0.1" value="1.5"></div>
-      <div class="row"><label for="seed" title="Random number generator seed for reproducible runs.">Random seed</label><input id="seed" type="number" step="1" value="12345"></div>
-      <div class="row"><label for="spf" title="Simulation steps performed per render. Lower moves slower at finer detail. Higher is not always increased simulation speed.">Steps per frame</label><input id="spf" type="number" min="1" max="20" step="1" value="4"></div>
-
-      <div class="footer">Tristan Ursell, PhD (C) 2025</div>
-    </section>
-
-    <!-- Right: Display -->
-    <section class="card">
-      <canvas id="cnv" width="500" height="500" style="width: 750px; height: 750px;"></canvas>
-    </section>
-  </main>
-
-<script type="module">
-// ========= Ready helper =========
-function onReady(fn){
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', fn, { once:true });
-  } else { fn(); }
-}
-
-onReady(() => {
-
-// ===== Utilities =====
-const TAU = Math.PI * 2;
-const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
-const mod = (n, m) => ((n % m) + m) % m;
-
-// === Internal parameters ===
-const INTERNAL_DX = 1; // INTERNAL PARAM: sniff step (px)
-
-// Always-computed directional samples based on dx_for
-function computeNsamp(dxfor){
-  const ns = 8 * Math.round(Math.PI * (Number(dxfor)||0));
-  return clamp(ns|0, 8, 120);
-}
-
-// Always derive attractor kernel size from diffusion width (px)
-function computeAttSize(Datt){
-  const raw = Math.max(1, Number(Datt)||1) * 3;
-  let s = Math.round(raw);
-  if (s < 3) s = 3;
-  if (s % 2 === 0) s += 1; // odd
-  return s;
-}
-
-function mulberry32(seed){
-  return function(){
-    let t = seed += 0x6D2B79F5;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function angleDiff(a){
-  let x = (a + Math.PI) % (2*Math.PI);
-  if (x < 0) x += 2*Math.PI;
-  return x - Math.PI;
-}
-
-function softmaxStable(arr, temperature){
-  const invT = 1 / temperature;
-  let maxv = -Infinity;
-  for (let i=0;i<arr.length;i++){ if (arr[i] > maxv) maxv = arr[i]; }
-  let s = 0;
-  const out = new Float32Array(arr.length);
-  for (let i=0;i<arr.length;i++){ const v = Math.exp((arr[i] - maxv) * invT); out[i] = v; s += v; }
-  const invS = 1/s;
-  for (let i=0;i<out.length;i++) out[i] *= invS;
-  return out;
-}
-
-function sampleFromProbs(rng, probs){
-  let r = rng();
-  let c = 0;
-  for (let i=0;i<probs.length;i++){ c += probs[i]; if (r <= c) return i; }
-  return probs.length - 1;
-}
-
-function buildGaussian1D(D){
-  if (D <= 0) return new Float32Array([1]);
-  let size = Math.max(3, Math.round(7*D + 2));
-  if (size % 2 === 0) size = Math.max(3, Math.round(7*D + 1));
-  const half = (size - 1) / 2;
-  const g = new Float32Array(size);
-  let sum = 0;
-  for (let i=0;i<size;i++){
-    const x = i - half;
-    const v = Math.exp(- (x*x) / (4*D));
-    g[i] = v; sum += v;
-  }
-  for (let i=0;i<size;i++) g[i] /= sum;
-  return g;
-}
-
-function convolveToroidalSeparable(src, L, kernel){
-  if (kernel.length === 1) return src.slice();
-  const outH = new Float32Array(L*L);
-  const outV = new Float32Array(L*L);
-  const k = kernel; const K = k.length; const half = (K-1)/2;
-  for (let y=0;y<L;y++){
-    const rowOff = y*L;
-    for (let x=0;x<L;x++){
-      let acc = 0;
-      for (let i=0;i<K;i++){
-        const xi = mod(x + i - half, L);
-        acc += k[i] * src[rowOff + xi];
+    <style>
+      :root {
+        --bg: #0e0f12;
+        --panel: #14161b;
+        --muted: #8a93a8;
+        --text: #e8ebf2;
+        --accent: #6ee7ff;
+        --accent2: #a78bfa;
+        --grid-gap: 14px;
+        --radius: 14px;
       }
-      outH[rowOff + x] = acc;
-    }
-  }
-  for (let y=0;y<L;y++){
-    for (let x=0;x<L;x++){
-      let acc = 0;
-      for (let i=0;i<K;i++){
-        const yi = mod(y + i - half, L);
-        acc += k[i] * outH[yi*L + x];
+
+      * {
+        box-sizing: border-box;
       }
-      outV[y*L + x] = acc;
-    }
-  }
-  return outV;
-}
 
-// Colormap: 'hot'
-function hotRGB(v){
-  v = Math.max(0, Math.min(1, v));
-  let r=0, g=0, b=0;
-  if (v < 1/3){ r = 3*v; }
-  else if (v < 2/3){ r = 1; g = 3*v - 1; }
-  else { r = 1; g = 1; b = 3*v - 2; }
-  return [Math.round(255*r), Math.round(255*g), Math.round(255*b)];
-}
-
-// === Fast rendering LUTs ===
-const LITTLE_ENDIAN = new Uint8Array(new Uint32Array([0x11223344]).buffer)[0] === 0x44;
-function packRGBA(r,g,b,a){
-  return LITTLE_ENDIAN ? ((a<<24)|(b<<16)|(g<<8)|r) : ((r<<24)|(g<<16)|(b<<8)|a);
-}
-const COLOR_LUT = new Uint32Array(256);
-for (let i=0;i<256;i++){ const [r,g,b] = hotRGB(i/255); COLOR_LUT[i] = packRGBA(r,g,b,255); }
-const EXP_LUT_MAX = 8.0; // 1-exp(-8)≈0.9997
-const EXP_LUT_SIZE = 4096;
-const EXP_LUT_SCALE = (EXP_LUT_SIZE-1)/EXP_LUT_MAX;
-const EXP_LUT = new Float32Array(EXP_LUT_SIZE);
-for (let i=0;i<EXP_LUT_SIZE;i++){ const z = i/EXP_LUT_SCALE; EXP_LUT[i] = 1 - Math.exp(-z); }
-
-class AntSim{
-  constructor(canvas){
-    this.c = canvas;
-    this.ctx = canvas.getContext('2d', { willReadFrequently: false });
-    this.running = false;
-    this.frame = 0; this.fps = 0; this._fpsTick = performance.now();
-  }
-  paramsFromUI(){
-    const get = id=>document.getElementById(id);
-    const valN = id=>Number(get(id).value);
-    const L = clamp(valN('L')|0, 32, 1024);
-    const dx_for = Number(document.getElementById('dxfor').value);
-    const Nsamp = computeNsamp(dx_for);
-    return {
-      Nants: clamp(valN('Nants')|0, 1, 5000),
-      L,
-      dx: INTERNAL_DX,
-      dx_for,
-      Nsamp,
-      dp: Number(document.getElementById('dp').value),
-      dpdt: Number(document.getElementById('dpdt').value),
-      D: Number(document.getElementById('D').value),
-      T: Number(document.getElementById('T').value),
-      theta_win: Number(document.getElementById('theta').value),
-      beta: Number(document.getElementById('beta').value),
-      pher_sat: Number(document.getElementById('sat').value),
-      pher_det: Number(document.getElementById('det').value),
-      attq: document.getElementById('attq').checked,
-      drawAnts: document.getElementById('drawAnts').checked,
-      stepsPerFrame: clamp(valN('spf')|0, 1, 100),
-      scale: clamp(valN('scale'), 1, 20),
-      seed: valN('seed')|0,
-      Datt: Math.max(1, valN('Datt')),
-      Datt_mag: Math.max(0, valN('Datt_mag'))
-    };
-  }
-  init(){
-    this.p = this.paramsFromUI();
-    const L = this.p.L;
-    this.c.width = L; this.c.height = L;
-    this.c.style.width = (L * this.p.scale) + 'px';
-    this.c.style.height = (L * this.p.scale) + 'px';
-    this.ctx.imageSmoothingEnabled = false;
-    // fast render surfaces
-    this.imd = this.ctx.createImageData(L, L);
-    this.px = new Uint32Array(this.imd.data.buffer);
-    this.updateDerivedSaturation();
-    this.antPacked = packRGBA(0,255,255,255);
-    // RNG
-    this.rng = mulberry32(this.p.seed || 1);
-    // Directional sampling
-    const Ns = this.p.Nsamp;
-    this.theta_vec = new Float32Array(Ns);
-    this.cos_th = new Float32Array(Ns);
-    this.sin_th = new Float32Array(Ns);
-    for (let k=0;k<Ns;k++){ const th = k*TAU/Ns; this.theta_vec[k]=th; this.cos_th[k]=Math.cos(th); this.sin_th[k]=Math.sin(th); }
-    this.probs = new Float32Array(Ns);
-    // Field & ants
-    const N = L*L; this.pher = new Float32Array(N); this.pher.fill(0);
-    const A = this.p.Nants; this.ax = new Float32Array(A); this.ay = new Float32Array(A); this.at = new Float32Array(A);
-    this.vx = new Float32Array(A); this.vy = new Float32Array(A);
-    for (let i=0;i<A;i++){ const th = this.rng()*TAU; this.at[i] = th; this.vx[i]=Math.cos(th); this.vy[i]=Math.sin(th); this.ax[i] = this.rng()*(L-2)+1; this.ay[i] = this.rng()*(L-2)+1; }
-    // Diffusion kernel
-    this.gk = buildGaussian1D(this.p.D);
-    // Attractor kernel + precomputed indices
-    this.rebuildAttractorStructures();
-    // Initial deposit / diffuse / decay
-    this.depositPheromone(this.ax, this.ay, this.p.dp);
-    if (this.p.attq) this.depositAttractors();
-    if (this.p.D > 0) this.pher = convolveToroidalSeparable(this.pher, L, this.gk);
-    this.applyDecay();
-    this.frame = 0; this._accumFrames = 0; this._fpsTick = performance.now();
-    this.render();
-  }
-  index(x,y){ return (y|0)*this.p.L + (x|0); }
-  bilinearSample(x,y){
-    const L = this.p.L;
-    const x0 = Math.floor(x), y0 = Math.floor(y);
-    const x1 = mod(x0+1, L), y1 = mod(y0+1, L);
-    const fx = x - x0, fy = y - y0;
-    const w1 = fx*fy, w2=(1-fx)*fy, w3=(1-fx)*(1-fy), w4=fx*(1-fy);
-    const i11 = this.index(x1,y1), i21 = this.index(x0,y1), i31 = this.index(x0,y0), i41=this.index(x1,y0);
-    return this.pher[i11]*w1 + this.pher[i21]*w2 + this.pher[i31]*w3 + this.pher[i41]*w4;
-  }
-  depositPheromone(xs, ys, amount){
-    const L = this.p.L; const N = xs.length;
-    for (let j=0;j<N;j++){
-      const x = xs[j], y = ys[j];
-      const x0 = Math.floor(x), y0 = Math.floor(y);
-      const x1 = mod(x0+1, L), y1 = mod(y0+1, L);
-      const fx = x - x0, fy = y - y0;
-      const w1 = fx*fy, w2=(1-fx)*fy, w3=(1-fx)*(1-fy), w4=fx*(1-fy);
-      this.pher[this.index(x1,y1)] += amount*w1;
-      this.pher[this.index(x0,y1)] += amount*w2;
-      this.pher[this.index(x0,y0)] += amount*w3;
-      this.pher[this.index(x1,y0)] += amount*w4;
-    }
-  }
-  applyDecay(){
-    const decay = Math.exp(-this.p.dpdt);
-    const arr = this.pher; const n = arr.length;
-    for (let i=0;i<n;i++) arr[i] *= decay;
-  }
-  updateDerivedSaturation(){
-    this.invSat = 1 / Math.max(1e-6, this.p.pher_sat);
-    let z = this.p.pher_det * this.invSat;
-    if (z > EXP_LUT_MAX) z = EXP_LUT_MAX; else if (z < 0) z = 0;
-    this.detSatVal = EXP_LUT[(z * EXP_LUT_SCALE) | 0];
-  }
-  buildAttractorKernel(_size, Datt, scale){
-    const S = computeAttSize(Datt);
-    const half = (S-1)/2;
-    const k = new Float32Array(S*S);
-    let minv = Infinity; let idx=0;
-    for (let y=-half;y<=half;y++){
-      for (let x=-half;x<=half;x++){
-        const v = Math.exp(-(x*x + y*y)/(4*Datt));
-        k[idx++] = v; if (v < minv) minv = v;
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: Inter, system-ui, Segoe UI, Roboto, Helvetica, Arial,
+          sans-serif;
       }
-    }
-    let sum=0; for (let i=0;i<k.length;i++){ k[i] -= minv; sum += k[i]; }
-    const norm = (sum > 0 ? scale / sum : 0);
-    for (let i=0;i<k.length;i++) k[i] *= norm;
-    return { data:k, size:S, half };
-  }
-  buildAttractorIndices(){
-    const L = this.p.L; const { size:S, half } = this.attKernel;
-    const centers = [
-      [Math.round(L/4), Math.round(L/4)],
-      [Math.round(3*L/4), Math.round(3*L/4)],
-      [Math.round(3*L/4), Math.round(L/4)],
-      [Math.round(L/4), Math.round(3*L/4)],
-    ];
-    this.attIndexLists = centers.map(([cx,cy])=>{
-      const idxs = new Uint32Array(S*S);
-      let t=0;
-      for (let dy=-half; dy<=half; dy++){
-        const y = mod(cy+dy, L); const rowBase = y*L;
-        for (let dx=-half; dx<=half; dx++){
-          const x = mod(cx+dx, L);
-          idxs[t++] = rowBase + x;
+
+      .header {
+        padding: var(--grid-gap);
+        padding-bottom: 0;
+      }
+
+      .header h1 {
+        margin: 0 0 6px 0;
+        font-size: 22px;
+      }
+
+      .note {
+        font-size: 12px;
+        color: #9aa3b7;
+      }
+
+      .wrap {
+        display: grid;
+        grid-template-columns: 360px 1fr;
+        gap: var(--grid-gap);
+        padding: var(--grid-gap);
+        padding-top: 8px;
+        align-items: start;
+      }
+
+      .card {
+        background: var(--panel);
+        border-radius: var(--radius);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+        padding: 16px;
+      }
+
+      h2 {
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--muted);
+        margin: 16px 0 8px;
+      }
+
+      .row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin: 6px 0;
+      }
+
+      .row label {
+        flex: 0 1 46%;
+        min-width: 0;
+        font-size: 13px;
+        color: #c6cbd8;
+      }
+
+      .row label[title] {
+        text-decoration: underline dotted;
+        cursor: help;
+      }
+
+      .row input[type="number"],
+      .row input[type="text"],
+      .row select {
+        flex: 1 1 54%;
+        min-width: 0;
+        width: 100%;
+        background: #0c0d10;
+        border: 1px solid #252a33;
+        color: var(--text);
+        border-radius: 10px;
+        padding: 6px 8px;
+      }
+
+      .row input[type="checkbox"] {
+        transform: scale(1.1);
+      }
+
+      .btns {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 8px;
+        align-items: center;
+      }
+
+      .btns button {
+        white-space: nowrap;
+        flex: 0 0 auto;
+      }
+
+      button {
+        background: #11141a;
+        border: 1px solid #2a3040;
+        color: #fff;
+        padding: 8px 12px;
+        border-radius: 12px;
+        cursor: pointer;
+      }
+
+      button:hover {
+        border-color: #3a4258;
+      }
+
+      button.primary {
+        background: linear-gradient(90deg, var(--accent), var(--accent2));
+        color: #0b0d12;
+        border: none;
+      }
+
+      .two-col {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+
+      .stat {
+        font-variant-numeric: tabular-nums;
+        color: #b9c1d8;
+        font-size: 12px;
+      }
+
+      canvas {
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+        border-radius: 16px;
+        border: 1px solid #222630;
+        background: #000;
+      }
+
+      .footer {
+        color: #7e879a;
+        font-size: 12px;
+        margin-top: 12px;
+      }
+
+      a.btn-link {
+        color: var(--accent);
+      }
+    </style>
+  </head>
+
+  <body>
+    <header class="header">
+      <h1>Ant Path Simulator</h1>
+      <div class="note">See this PDF for basic explanation of the model.</div>
+    </header>
+
+    <main class="wrap">
+      <section class="card">
+        <div class="btns top-controls">
+          <button class="primary" id="startBtn">Start</button>
+          <button id="pauseBtn">Pause</button>
+          <button id="resetBtn">Reset</button>
+          <button id="stepBtn">Step</button>
+        </div>
+
+        <div class="btns" id="exportRow">
+          <button id="exportBtn">Export PNG</button>
+        </div>
+
+        <div
+          id="exportNotice"
+          class="note"
+          style="display: none; margin-top: 6px"
+        >
+          Click <a id="exportLink" class="btn-link" download>Download PNG</a>.
+        </div>
+
+        <div class="btns" id="recordRow">
+          <button id="recStartBtn">Start Recording</button>
+          <button id="recStopBtn" disabled>Stop &amp; Save</button>
+        </div>
+
+        <div class="two-col" style="margin-top: 4px">
+          <div class="row">
+            <label for="recFps" title="Frame rate of the recording."
+              >Record FPS</label
+            >
+            <input
+              id="recFps"
+              type="number"
+              min="1"
+              max="120"
+              step="1"
+              value="60"
+            />
+          </div>
+
+          <div class="row">
+            <label
+              for="recPreferMp4"
+              title="Try to record MP4 (H.264) if supported. Fallback to WebM if not."
+              >Prefer MP4 (H.264)</label
+            >
+            <input id="recPreferMp4" type="checkbox" checked />
+          </div>
+        </div>
+
+        <div
+          id="recNotice"
+          class="note"
+          style="display: none; margin-top: 6px"
+        ></div>
+
+        <div class="two-col top-stats" style="margin-top: 6px">
+          <div class="stat">Step: <span id="statStep">0</span></div>
+          <div class="stat">FPS: <span id="statFPS">60.1</span></div>
+        </div>
+
+        <div class="row">
+          <label for="presetSelect">Choose preset</label>
+          <select id="presetSelect"></select>
+        </div>
+
+        <h2>Core Parameters</h2>
+
+        <div class="row">
+          <label for="Nants" title="Number of simulated ants. Higher values lower FPS."
+            ># of Ants</label
+          >
+          <input
+            id="Nants"
+            type="number"
+            min="1"
+            max="5000"
+            step="1"
+            value="500"
+          />
+        </div>
+
+        <div class="row">
+          <label for="L" title="Width/height of the simulation grid."
+            >Grid size (px)</label
+          >
+          <input
+            id="L"
+            type="number"
+            min="64"
+            max="1024"
+            step="16"
+            value="500"
+          />
+        </div>
+
+        <h2>Pheromone Settings</h2>
+
+        <div class="row">
+          <label for="dp" title="Pheromone deposited per ant per step."
+            >Deposit per step (au)</label
+          >
+          <input id="dp" type="number" min="0" max="5" step="0.1" value="1" />
+        </div>
+
+        <div class="row">
+          <label for="dpdt" title="Per-step exponential decay rate of pheromone."
+            >Exp. decay rate</label
+          >
+          <input
+            id="dpdt"
+            type="number"
+            min="0"
+            max="0.02"
+            step="0.0005"
+            value="0.001"
+          />
+        </div>
+
+        <div class="row">
+          <label
+            for="D"
+            title="Pheromone diffusion coefficient in px² per step. Zero disables diffusion, and runs much faster."
+            >Diffusion (px²/step)</label
+          >
+          <input id="D" type="number" min="0" max="3" step="0.05" value="0" />
+        </div>
+
+        <div class="row">
+          <label
+            for="sat"
+            title="Pheromone saturation scale (1-exp(-value/saturation)) used in direction decision; limits maximum value of pheromone (sensed by ant)."
+            >Saturation (max value)</label
+          >
+          <input
+            id="sat"
+            type="number"
+            min="1"
+            max="200"
+            step="1"
+            value="50"
+          />
+        </div>
+
+        <div class="row">
+          <label
+            for="det"
+            title="Pheromone detection limit. Values below this (after saturation mapping) are ignored for decisions &amp; rendering. Range: 0 to Saturation (raw units)."
+            >Detection limit (≤ saturation)</label
+          >
+          <input
+            id="det"
+            type="number"
+            min="0"
+            max="200"
+            step="0.5"
+            value="0"
+          />
+        </div>
+
+        <h2>Movement &amp; Direction</h2>
+
+        <div class="row">
+          <label
+            for="T"
+            title="Temperature parameter for stochastic direction choice. Lower → greedier; higher → more exploratory."
+            >Decision temperature</label
+          >
+          <input
+            id="T"
+            type="number"
+            min="0.0001"
+            max="0.02"
+            step="0.0001"
+            value="0.003"
+          />
+        </div>
+
+        <div class="row">
+          <label
+            for="theta"
+            title="Angular window around current heading favored by the logistic gates."
+            >Theta window (rad)</label
+          >
+          <input
+            id="theta"
+            type="number"
+            min="0.1"
+            max="3.1416"
+            step="0.05"
+            value="0.7854"
+          />
+        </div>
+
+        <div class="row">
+          <label
+            for="beta"
+            title="Sharpness of the logistic gates around the theta window. Higher = strict window. Lower looks more diffusive."
+            >Window sharpness</label
+          >
+          <input id="beta" type="number" min="1" max="20" step="0.5" value="5" />
+        </div>
+
+        <div class="row">
+          <label
+            for="dxfor"
+            title="Forward bias distance before directional sampling."
+            >Forward step (px)</label
+          >
+          <input
+            id="dxfor"
+            type="number"
+            min="0"
+            max="10"
+            step="0.5"
+            value="2"
+          />
+        </div>
+
+        <h2>External Attractors</h2>
+
+        <div class="row">
+          <label
+            for="attq"
+            title="Adds four fixed pheromone sources in a centered square."
+            >Include attractors (@ 4 corners)</label
+          >
+          <input id="attq" type="checkbox" />
+        </div>
+
+        <div class="row">
+          <label
+            for="Datt"
+            title="Attractor Gaussian width (STD). Kernel size auto = 3×Datt (odd)."
+            >Diffusive width (px)</label
+          >
+          <input
+            id="Datt"
+            type="number"
+            min="1"
+            max="100"
+            step="1"
+            value="50"
+          />
+        </div>
+
+        <div class="row">
+          <label
+            for="Datt_mag"
+            title="Attractor strength, relative to pheromone deposition rate."
+            >Strength (relative to deposit)</label
+          >
+          <input
+            id="Datt_mag"
+            type="number"
+            min="1"
+            max="50"
+            step="1"
+            value="15"
+          />
+        </div>
+
+        <h2>Display</h2>
+
+        <div class="row">
+          <label for="drawAnts" title="Overlay cyan dots for ant positions."
+            >Draw ants</label
+          >
+          <input id="drawAnts" type="checkbox" checked />
+        </div>
+
+        <div class="row">
+          <label
+            for="scale"
+            title="Scale the output image display size; supports fractional values (e.g. 1.5)."
+            >Scale (px per grid cell)</label
+          >
+          <input
+            id="scale"
+            type="number"
+            min="1"
+            max="20"
+            step="0.1"
+            value="1.5"
+          />
+        </div>
+
+        <div class="row">
+          <label for="seed" title="Random number generator seed for reproducible runs."
+            >Random seed</label
+          >
+          <input id="seed" type="number" step="1" value="12345" />
+        </div>
+
+        <div class="row">
+          <label
+            for="spf"
+            title="Simulation steps performed per render. Lower moves slower at finer detail. Higher is not always increased simulation speed."
+            >Steps per frame</label
+          >
+          <input
+            id="spf"
+            type="number"
+            min="1"
+            max="20"
+            step="1"
+            value="4"
+          />
+        </div>
+
+        <div class="footer">Tristan Ursell, PhD (C) 2025</div>
+      </section>
+
+      <section class="card">
+        <canvas
+          id="cnv"
+          width="500"
+          height="500"
+          style="width: 750px; height: 750px"
+        ></canvas>
+      </section>
+    </main>
+
+    <script type="module">
+      function onReady(fn) {
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', fn, { once: true });
+        } else {
+          fn();
         }
       }
-      return idxs;
-    });
-  }
-  rebuildAttractorStructures(){
-    this.attKernel = this.buildAttractorKernel(computeAttSize(this.p.Datt), this.p.Datt, this.p.Datt_mag * this.p.dp);
-    this.buildAttractorIndices();
-  }
-  rebuildSampling(Ns){
-    this.p.Nsamp = Ns|0;
-    const n = this.p.Nsamp;
-    this.theta_vec = new Float32Array(n);
-    this.cos_th = new Float32Array(n);
-    this.sin_th = new Float32Array(n);
-    for (let k=0;k<n;k++){
-      const th = k*TAU/n; this.theta_vec[k]=th; this.cos_th[k]=Math.cos(th); this.sin_th[k]=Math.sin(th);
-    }
-    this.probs = new Float32Array(n);
-  }
-  stampKernel(cx, cy, kernel){
-    const L = this.p.L; const S = kernel.size; const half = kernel.half; const data = kernel.data;
-    let t=0;
-    for (let dy=-half; dy<=half; dy++){
-      const y = mod(Math.round(cy)+dy, L);
-      for (let dx=-half; dx<=half; dx++){
-        const x = mod(Math.round(cx)+dx, L);
-        this.pher[this.index(x,y)] += data[t++];
-      }
-    }
-  }
-  depositAttractors(){
-    if (!this.attIndexLists) return;
-    const data = this.attKernel.data; const n = data.length; const arr = this.pher;
-    for (const idxs of this.attIndexLists){
-      for (let t=0;t<n;t++) arr[idxs[t]] += data[t];
-    }
-  }
-  step(){
-    const A = this.p.Nants; const Ns = this.p.Nsamp; const L = this.p.L;
-    const { dx, dx_for, T, beta, theta_win, dp } = this.p;
-    const probs = this.probs;
-    for (let j=0;j<A;j++){
-      const x1 = this.ax[j];
-      const y1 = this.ay[j];
-      const vx = this.vx[j];
-      const vy = this.vy[j];
-      const th0 = this.at[j];
-      const xf = mod(x1 + dx_for*vx, L);
-      const yf = mod(y1 + dx_for*vy, L);
-      for (let k=0;k<Ns;k++){
-        const xt = mod(xf + dx*this.cos_th[k], L);
-        const yt = mod(yf + dx*this.sin_th[k], L);
-        const raw = this.bilinearSample(xt, yt);
-        let z = raw * this.invSat;
-        if (z > EXP_LUT_MAX) z = EXP_LUT_MAX; else if (z < 0) z = 0;
-        const pher = EXP_LUT[(z * EXP_LUT_SCALE) | 0];
-        const dth = Math.abs(angleDiff(th0 - this.theta_vec[k]));
-        const gate = 1/(1 + Math.exp(-beta*(dth + theta_win/2))) * 1/(1 + Math.exp(beta*(dth - theta_win/2)));
-        probs[k] = (pher < this.detSatVal ? 0 : pher) * gate;
-      }
-      const P = softmaxStable(probs, T);
-      const choice = sampleFromProbs(this.rng, P);
-      const cx = this.cos_th[choice], cy = this.sin_th[choice];
-      const x2 = mod(x1 + dx*cx, L);
-      const y2 = mod(y1 + dx*cy, L);
-      this.ax[j] = x2; this.ay[j] = y2; this.at[j] = this.theta_vec[choice];
-      this.vx[j] = cx; this.vy[j] = cy;
-    }
-    this.depositPheromone(this.ax, this.ay, dp);
-    if (this.p.attq) this.depositAttractors();
-    if (this.p.D > 0){ this.pher = convolveToroidalSeparable(this.pher, L, this.gk); }
-    this.applyDecay();
-    this.frame++;
-  }
-  render(){
-    const arr = this.pher; const invSat = this.invSat; const px = this.px;
-    for (let i=0;i<arr.length;i++){
-      let z = arr[i] * invSat; if (z > EXP_LUT_MAX) z = EXP_LUT_MAX; else if (z < 0) z = 0;
-      let vi = EXP_LUT[(z * EXP_LUT_SCALE) | 0];
-      if (vi < this.detSatVal) vi = 0;
-      const ci = (vi * 255 + 0.5) | 0;
-      px[i] = COLOR_LUT[ci];
-    }
-    if (this.p.drawAnts){
-      const packed = this.antPacked; const L = this.p.L;
-      for (let i=0;i<this.p.Nants;i++){
-        const x0 = this.ax[i]|0, y0 = this.ay[i]|0;
-        px[y0*L + x0] = packed;
-      }
-    }
-    this.ctx.putImageData(this.imd, 0, 0);
 
-    const stepEl = document.getElementById('statStep');
-    if (stepEl) stepEl.textContent = String(this.frame);
-    const fpsEl = document.getElementById('statFPS');
-    const now = performance.now();
-    this._accumFrames = (this._accumFrames||0)+1;
-    if (now - this._fpsTick > 500){
-      const fpsExact = 1000 * this._accumFrames / (now - this._fpsTick);
-      this.fps = Math.round(fpsExact * 10) / 10;
-      if (fpsEl) fpsEl.textContent = this.fps.toFixed(1);
-      this._accumFrames = 0; this._fpsTick = now;
-    }
-  }
-}
+      onReady(() => {
+        const TAU = Math.PI * 2,
+          clamp = (x, a, b) => Math.max(a, Math.min(b, x)),
+          mod = (n, m) => ((n % m) + m) % m,
+          INTERNAL_DX = 1;
 
-const cnv = document.getElementById('cnv');
-const app = new AntSim(cnv);
-let raf = null;
-let lastExportUrl = null; // keep the last object URL alive until next export
-let APPLYING_PRESET = false; // guard to prevent intermediate listeners from fighting presets
+        function computeNsamp(dxfor) {
+          const ns = 8 * Math.round(Math.PI * (Number(dxfor) || 0));
+          return clamp(ns | 0, 8, 120);
+        }
 
-function loop(){
-  if (!app.running) return;
-  const steps = app.p.stepsPerFrame;
-  for (let i=0;i<steps;i++) app.step();
-  app.render();
-  raf = requestAnimationFrame(loop);
-}
+        function computeAttSize(Datt) {
+          const raw = Math.max(1, Number(Datt) || 1) * 3;
+          let s = Math.round(raw);
+          if (s < 3) s = 3;
+          if (s % 2 === 0) s += 1;
+          return s;
+        }
 
-function start(){ if (!app.running){ app.running = true; raf = requestAnimationFrame(loop); } }
-function pause(){ app.running = false; if (raf) cancelAnimationFrame(raf); }
-function reset(){ pause(); app.init(); const fpsEl = document.getElementById('statFPS'); if (fpsEl) fpsEl.textContent = '0.0'; }
+        function mulberry32(seed) {
+          return function () {
+            let t = (seed += 0x6d2b79f5);
+            t = Math.imul(t ^ (t >>> 15), t | 1);
+            t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+          };
+        }
 
-const $ = id=>document.getElementById(id);
-$('startBtn').onclick = start;
-$('pauseBtn').onclick = pause;
-$('resetBtn').onclick = reset;
-$('stepBtn').onclick = ()=>{ if (!app.running){ app.step(); app.render(); } else { app.p.stepsPerFrame = 1; } };
-$('exportBtn').onclick = ()=>{
-  const name = `ant_sim_${new Date().toISOString().replace(/[:.]/g,'-')}.png`;
-  const notice = document.getElementById('exportNotice');
-  const link = document.getElementById('exportLink');
-  const showLink = (href)=>{
-    try{ if (lastExportUrl && lastExportUrl.startsWith('blob:')) URL.revokeObjectURL(lastExportUrl); }catch(e){}
-    lastExportUrl = href;
-    if (link){ link.href = href; link.setAttribute('download', name); }
-    if (notice) notice.style.display = 'block';
-    setTimeout(()=>{ try{ link && link.click(); }catch(e){} }, 0);
-  };
-  try{
-    if (cnv.toBlob){
-      cnv.toBlob(blob => {
-        if (blob){ const url = URL.createObjectURL(blob); showLink(url); }
-        else { showLink(cnv.toDataURL('image/png')); }
-      }, 'image/png');
-    } else {
-      showLink(cnv.toDataURL('image/png'));
-    }
-  }catch(err){
-    console.error('Export failed:', err);
-    if (notice){ notice.textContent = 'Export failed. See console for details.'; notice.style.display = 'block'; }
-  }
-};
+        function angleDiff(a) {
+          let x = (a + Math.PI) % (2 * Math.PI);
+          if (x < 0) x += 2 * Math.PI;
+          return x - Math.PI;
+        }
 
-// Safe event wiring for inputs that always exist in the DOM
-$('dxfor').addEventListener('change', ()=>{ if (APPLYING_PRESET) return; const Ns = computeNsamp(Number($('dxfor').value)); app.rebuildSampling(Ns); });
-$('scale').addEventListener('change', ()=>{ if (APPLYING_PRESET) return; const sc = clamp(parseFloat($('scale').value),1,20); const L = Number($('L').value)|0; cnv.style.width = (L*sc)+'px'; cnv.style.height = (L*sc)+'px'; });
-$('L').addEventListener('change', ()=>{ if (APPLYING_PRESET) return; const sc = clamp(parseFloat($('scale').value),1,20); const L = Number($('L').value)|0; cnv.style.width = (L*sc)+'px'; cnv.style.height = (L*sc)+'px'; });
+        function softmaxStable(arr, T) {
+          const invT = 1 / T;
+          let maxv = -Infinity;
+          for (let i = 0; i < arr.length; i++) if (arr[i] > maxv) maxv = arr[i];
+          let s = 0;
+          const out = new Float32Array(arr.length);
+          for (let i = 0; i < arr.length; i++) {
+            const v = Math.exp((arr[i] - maxv) * invT);
+            out[i] = v;
+            s += v;
+          }
+          const invS = 1 / s;
+          for (let i = 0; i < out.length; i++) out[i] *= invS;
+          return out;
+        }
 
-function wireLiveControls(){
-  const $ = (id)=>document.getElementById(id);
-  const num = (id, fn) => $(id).addEventListener('input', ()=> { if (APPLYING_PRESET) return; fn(Number($(id).value)); });
-  const chk = (id, fn) => $(id).addEventListener('change', ()=> { if (APPLYING_PRESET) return; fn($(id).checked); });
-  num('dpdt', v => app.p.dpdt = Math.max(0, v));
-  num('dp', v => { app.p.dp = Math.max(0, v); app.rebuildAttractorStructures(); });
-  num('D', v => { app.p.D = Math.max(0, v); app.gk = buildGaussian1D(app.p.D); });
-  num('T', v => app.p.T = Math.max(1e-6, v));
-  num('theta', v => app.p.theta_win = v);
-  num('beta', v => app.p.beta = v);
-  num('dxfor', v => { app.p.dx_for = v; const Ns = computeNsamp(v); app.rebuildSampling(Ns); });
-  num('sat', v => { app.p.pher_sat = Math.max(1, v); if (app.p.pher_det > app.p.pher_sat) app.p.pher_det = app.p.pher_sat; app.updateDerivedSaturation(); });
-  num('det', v => { app.p.pher_det = Math.max(0, Math.min(v, app.p.pher_sat)); app.updateDerivedSaturation(); });
-  chk('attq', v => app.p.attq = v);
-  chk('drawAnts', v => app.p.drawAnts = v);
-  num('spf', v => app.p.stepsPerFrame = Math.max(1, v|0));
-  num('Datt', v => { app.p.Datt = Math.max(1, v); app.rebuildAttractorStructures(); });
-  num('Datt_mag', v => { app.p.Datt_mag = Math.max(0, v); app.rebuildAttractorStructures(); });
-}
+        function sampleFromProbs(rng, p) {
+          let r = rng(),
+            c = 0;
+          for (let i = 0; i < p.length; i++) {
+            c += p[i];
+            if (r <= c) return i;
+          }
+          return p.length - 1;
+        }
 
-const PRESETS = [
-  {
-    name:'1. Dynamic Noodles',
-    vals:{ L:300, Nants:100, dp:1, dpdt:0.01, D:0, sat:10, det:0, T:0.01, theta:2.5, beta:5, dxfor:2, attq:false, Datt:50, Datt_mag:15, drawAnts:true, scale:2, spf:50 }
-  },
-  {
-    name:'2. Dynamic Road Networks',
-    vals:{ L:300, Nants:100, dp:1, dpdt:0.003, D:0, sat:10, det:0, T:0.01, theta:0.5, beta:5, dxfor:2, attq:false, Datt:50, Datt_mag:15, drawAnts:true, scale:2, spf:50 }
-  },
-  {
-    name:'3. Phase Coarsening #1',
-    vals:{ L:200, Nants:1200, dp:2, dpdt:0.002, D:0.05, sat:40, det:0, T:0.1, theta:5, beta:1, dxfor:2, attq:false, Datt:50, Datt_mag:5, drawAnts:false, scale:3, spf:10 }
-  },
-  {
-    name:'4. Looped Network w/Attractors #1',
-    vals:{ L:300, Nants:300, dp:1, dpdt:0.003, D:0, sat:10, det:0, T:0.01, theta:2.75, beta:100, dxfor:2, attq:true, Datt:50, Datt_mag:5, drawAnts:true, scale:2, spf:20 }
-  },
-  {
-    name:'5. Looped Network w/Attractors #2 (play with theta)',
-    vals:{ L:300, Nants:500, dp:3, dpdt:0.003, D:0, sat:10, det:0, T:0.05, theta:2.5, beta:5, dxfor:2, attq:true, Datt:50, Datt_mag:5, drawAnts:true, scale:2, spf:20 }
-  },
-  {
-    name:'6. Fine-scale Road Networks',
-    vals:{ L:300, Nants:300, dp:1, dpdt:0.003, D:0, sat:10, det:0, T:0.01, theta:0.5, beta:10, dxfor:2, attq:false, Datt:50, Datt_mag:15, drawAnts:true, scale:2, spf:50 }
-  },
-];
+        function buildGaussian1D(D) {
+          if (D <= 0) return new Float32Array([1]);
+          let size = Math.max(3, Math.round(7 * D + 2));
+          if (size % 2 === 0) size = Math.max(3, Math.round(7 * D + 1));
+          const half = (size - 1) / 2,
+            g = new Float32Array(size);
+          let sum = 0;
+          for (let i = 0; i < size; i++) {
+            const x = i - half,
+              v = Math.exp(-(x * x) / (4 * D));
+            g[i] = v;
+            sum += v;
+          }
+          for (let i = 0; i < size; i++) g[i] /= sum;
+          return g;
+        }
 
-function applyPreset(v){
-  APPLYING_PRESET = true;
-  try{
-    const map = {
-      Nants:'Nants', L:'L', dxfor:'dxfor',
-      dp:'dp', dpdt:'dpdt', D:'D', sat:'sat', det:'det',
-      T:'T', theta:'theta', beta:'beta',
-      attq:'attq', Datt:'Datt', Datt_mag:'Datt_mag',
-      drawAnts:'drawAnts', scale:'scale', spf:'spf'
-    };
-    for (const [k,id] of Object.entries(map)){
-      if (!Object.prototype.hasOwnProperty.call(v, k)) continue;
-      const el = document.getElementById(id);
-      if (!el) continue;
-      if (el.type === 'checkbox'){
-        el.checked = !!v[k];
-        el.dispatchEvent(new Event('change', { bubbles:true }));
-      } else {
-        el.value = String(v[k]);
-        el.dispatchEvent(new Event('input', { bubbles:true }));
-        el.dispatchEvent(new Event('change', { bubbles:true }));
-      }
-    }
-  } finally {
-    APPLYING_PRESET = false;
-  }
-  // If called programmatically (like tests), sync the dropdown selection too
-  const psel = document.getElementById('presetSelect');
-  if (psel){
-    const idx = PRESETS.findIndex(p => p.vals === v);
-    if (idx >= 0) psel.value = String(idx);
-  }
-  reset();
-}
+        function convolveToroidalSeparable(src, L, kernel) {
+          if (kernel.length === 1) return src.slice();
+          const outH = new Float32Array(L * L),
+            outV = new Float32Array(L * L),
+            k = kernel,
+            K = k.length,
+            half = (K - 1) / 2;
+          for (let y = 0; y < L; y++) {
+            const rowOff = y * L;
+            for (let x = 0; x < L; x++) {
+              let acc = 0;
+              for (let i = 0; i < K; i++) {
+                const xi = mod(x + i - half, L);
+                acc += k[i] * src[rowOff + xi];
+              }
+              outH[rowOff + x] = acc;
+            }
+          }
+          for (let y = 0; y < L; y++) {
+            for (let x = 0; x < L; x++) {
+              let acc = 0;
+              for (let i = 0; i < K; i++) {
+                const yi = mod(y + i - half, L);
+                acc += k[i] * outH[yi * L + x];
+              }
+              outV[y * L + x] = acc;
+            }
+          }
+          return outV;
+        }
 
-const presetSelect = document.getElementById('presetSelect');
-function populatePresetDropdown(){
-  const frag = document.createDocumentFragment();
-  const defaultOpt = document.createElement('option');
-  defaultOpt.value = '';
-  defaultOpt.textContent = '— Select a preset —';
-  frag.appendChild(defaultOpt);
-  PRESETS.forEach((p, i) => {
-    const opt = document.createElement('option');
-    opt.value = String(i);
-    opt.textContent = p.name;
-    frag.appendChild(opt);
-  });
-  presetSelect.replaceChildren(frag);
-}
-populatePresetDropdown();
+        function hotRGB(v) {
+          v = Math.max(0, Math.min(1, v));
+          let r = 0,
+            g = 0,
+            b = 0;
+          if (v < 1 / 3) {
+            r = 3 * v;
+          } else if (v < 2 / 3) {
+            r = 1;
+            g = 3 * v - 1;
+          } else {
+            r = 1;
+            g = 1;
+            b = 3 * v - 2;
+          }
+          return [
+            Math.round(255 * r),
+            Math.round(255 * g),
+            Math.round(255 * b),
+          ];
+        }
 
-presetSelect.addEventListener('change', () => {
-  if (presetSelect.value === '') return;
-  const idx = Number(presetSelect.value);
-  if (!Number.isNaN(idx) && PRESETS[idx]) applyPreset(PRESETS[idx].vals);
-});
+        const LITTLE_ENDIAN =
+          new Uint8Array(new Uint32Array([0x11223344]).buffer)[0] === 0x44;
 
-// Initialize with the first preset by default
-presetSelect.value = '0';
-applyPreset(PRESETS[0].vals);
-// Then wire the live controls
-wireLiveControls();
+        function packRGBA(r, g, b, a) {
+          return LITTLE_ENDIAN
+            ? (a << 24) | (b << 16) | (g << 8) | r
+            : (r << 24) | (g << 16) | (b << 8) | a;
+        }
 
-// Helper: snapshot/restore UI without firing listeners
-function snapshotUI(){
-  const ids = ['Nants','L','dxfor','dp','dpdt','D','sat','det','T','theta','beta','Datt','Datt_mag','scale','seed','spf'];
-  const checks = ['attq','drawAnts'];
-  const snap = { values:{}, checks:{}, preset: document.getElementById('presetSelect').value };
-  for (const id of ids){ const el = document.getElementById(id); if (el) snap.values[id] = el.value; }
-  for (const id of checks){ const el = document.getElementById(id); if (el) snap.checks[id] = !!el.checked; }
-  return snap;
-}
-function restoreUI(snap){
-  if (!snap) return;
-  APPLYING_PRESET = true;
-  try{
-    for (const [id,val] of Object.entries(snap.values)){
-      const el = document.getElementById(id); if (el) el.value = val;
-    }
-    for (const [id,ck] of Object.entries(snap.checks)){
-      const el = document.getElementById(id); if (el) el.checked = !!ck;
-    }
-    const psel = document.getElementById('presetSelect'); if (psel) psel.value = snap.preset;
-  } finally {
-    APPLYING_PRESET = false;
-  }
-  reset();
-}
+        const COLOR_LUT = new Uint32Array(256);
+        for (let i = 0; i < 256; i++) {
+          const [r, g, b] = hotRGB(i / 255);
+          COLOR_LUT[i] = packRGBA(r, g, b, 255);
+        }
 
-// ===== Minimal Self-Tests (console) =====
-(function selfTests(){
-  const __snap = snapshotUI();
-  // hotRGB endpoints
-  console.assert(JSON.stringify(hotRGB(0)) === JSON.stringify([0,0,0]), 'hotRGB(0) should be black');
-  const w = hotRGB(1); console.assert(w[0]===255 && w[1]===255 && w[2]===255, 'hotRGB(1) should be white-ish');
-  // gaussian kernel sums ~1
-  const g = buildGaussian1D(2.0); let s=0; for (let i=0;i<g.length;i++) s+=g[i]; console.assert(Math.abs(s-1)<1e-5, 'gaussian kernel normalized');
-  // identity convolution no-op
-  const arr = new Float32Array([1,2,3,4]);
-  const back = convolveToroidalSeparable(arr, 2, new Float32Array([1]));
-  console.assert(back.length===arr.length && back[0]===1 && back[3]===4, 'identity convolution');
-  // UI presence
-  console.assert(!!document.getElementById('statStep'), 'statStep should exist');
-  console.assert(!!document.getElementById('statFPS'), 'statFPS should exist');
-  console.assert(!!document.getElementById('exportBtn'), 'exportBtn should exist');
-  console.assert(!!document.getElementById('exportLink'), 'exportLink should exist');
-  console.assert(!!document.getElementById('presetSelect'), 'presetSelect should exist');
-  // Nsamp formula tests
-  console.assert(computeNsamp(0) === 8, 'Nsamp clamp min');
-  console.assert(computeNsamp(2) === 8*Math.round(Math.PI*2), 'Nsamp = 8*round(pi*dx_for)');
-  console.assert(computeNsamp(10) === 120, 'Nsamp clamp max');
-  // att size tests
-  console.assert(computeAttSize(10) % 2 === 1 && computeAttSize(10) >= 30, 'att size odd and ~3x Datt');
-  console.assert(computeAttSize(1) >= 3 && computeAttSize(1) % 2 === 1, 'att size min odd >=3');
-  // App consistency
-  console.assert(app.p.Nsamp === computeNsamp(app.p.dx_for), 'app Nsamp consistent with dx_for');
-  const testNs = computeNsamp(3); app.rebuildSampling(testNs); console.assert(app.theta_vec.length === testNs, 'rebuildSampling sets sampling size');
-  // Wiring present
-  console.assert(typeof document.getElementById('exportBtn').onclick === 'function', 'export onclick wired');
-  
-  // ---- Init behavior tests ----
-  console.assert(Number(document.getElementById('L').value) === PRESETS[0].vals.L, 'init uses preset[0] - L');
-  console.assert(document.getElementById('attq').checked === PRESETS[0].vals.attq, 'init uses preset[0] - attq');
-  console.assert(Number(document.getElementById('spf').value) === PRESETS[0].vals.spf, 'init uses preset[0] - spf');
-  console.assert(document.getElementById('statFPS').textContent === '0.0', 'FPS resets to 0.0 on reset/init');
-  reset();
-  console.assert(document.getElementById('statFPS').textContent === '0.0', 'FPS resets to 0.0 after reset');
+        const EXP_LUT_MAX = 8,
+          EXP_LUT_SIZE = 4096,
+          EXP_LUT_SCALE = (EXP_LUT_SIZE - 1) / EXP_LUT_MAX,
+          EXP_LUT = new Float32Array(EXP_LUT_SIZE);
 
-  // ---- Preset & reset tests ----
-  const seedBefore = Number(document.getElementById('seed').value);
-  applyPreset(PRESETS[0].vals);
-  console.assert(Number(document.getElementById('L').value) === PRESETS[0].vals.L, 'preset sets L input');
-  console.assert(Number(document.getElementById('Nants').value) === PRESETS[0].vals.Nants, 'preset sets Nants');
-  console.assert(Number(document.getElementById('dp').value) === PRESETS[0].vals.dp, 'preset sets dp');
-  console.assert(Number(document.getElementById('dpdt').value) === PRESETS[0].vals.dpdt, 'preset sets dpdt');
-  console.assert(Number(document.getElementById('D').value) === PRESETS[0].vals.D, 'preset sets D');
-  console.assert(Number(document.getElementById('T').value) === PRESETS[0].vals.T, 'preset sets T');
-  console.assert(Number(document.getElementById('theta').value) === PRESETS[0].vals.theta, 'preset sets theta');
-  console.assert(Number(document.getElementById('beta').value) === PRESETS[0].vals.beta, 'preset sets beta');
-  console.assert(Number(document.getElementById('dxfor').value) === PRESETS[0].vals.dxfor, 'preset sets dxfor');
-  console.assert(document.getElementById('attq').checked === PRESETS[0].vals.attq, 'preset sets checkbox attq');
-  console.assert(Number(document.getElementById('spf').value) === PRESETS[0].vals.spf, 'preset sets steps per frame');
-  console.assert(Number(document.getElementById('det').value) === PRESETS[0].vals.det, 'preset includes detection limit');
-  console.assert(app.p.L === PRESETS[0].vals.L, 'preset applies L to app params after reset');
-  console.assert(app.frame === 0 && app.running === false, 'preset triggers reset: frame=0, not running');
-  console.assert(Number(document.getElementById('seed').value) === seedBefore, 'preset should not change RNG seed');
-  console.assert(app.p.dx === 1, 'INTERNAL_DX must be 1 unless changed in code');
+        for (let i = 0; i < EXP_LUT_SIZE; i++) {
+          const z = i / EXP_LUT_SCALE;
+          EXP_LUT[i] = 1 - Math.exp(-z);
+        }
 
-  // ---- Detection limit tests ----
-  console.assert(typeof app.detSatVal === 'number', 'detSatVal should be computed');
-  const oldSat = app.p.pher_sat, oldDet = app.p.pher_det;
-  app.p.pher_sat = 50; app.p.pher_det = 10; app.updateDerivedSaturation();
-  console.assert(app.detSatVal > 0 && app.detSatVal < 1, 'detSatVal in (0,1)');
-  const prevDetSat = app.detSatVal;
-  app.p.pher_det = 20; app.updateDerivedSaturation();
-  console.assert(app.detSatVal > prevDetSat, 'detSatVal increases with detection limit');
-  // rendering gate sanity: set a low signal below threshold → pixel black
-  app.p.pher_det = 5; app.p.pher_sat = 10; app.updateDerivedSaturation();
-  app.pher.fill(0); app.pher[0] = 1; // 1 au, sat ~ 0.095, below det ~ 0.393
-  app.render();
-  console.assert(app.px[0] === COLOR_LUT[0], 'render gate: below detection → black pixel');
-  // restore
-  app.p.pher_sat = oldSat; app.p.pher_det = oldDet; app.updateDerivedSaturation();
+        class AntSim {
+          constructor(canvas) {
+            this.c = canvas;
+            this.ctx = canvas.getContext('2d', {
+              willReadFrequently: false,
+            });
+            this.running = false;
+            this.frame = 0;
+            this.fps = 0;
+            this._fpsTick = performance.now();
+          }
 
-  // ---- Extra: second preset sanity ----
-  applyPreset(PRESETS[1].vals);
-  console.assert(Number(document.getElementById('theta').value) === PRESETS[1].vals.theta, 'preset[1] sets theta');
-  console.assert(app.frame === 0 && app.running === false, 'preset[1] resets & does not auto-start');
-  // Restore initial UI & preset after tests so runtime matches dropdown
-  restoreUI(__snap);
-})();
+          paramsFromUI() {
+            const get = (id) => document.getElementById(id),
+              valN = (id) => Number(get(id).value),
+              L = clamp(valN('L') | 0, 32, 1024),
+              dx_for = Number(document.getElementById('dxfor').value),
+              Nsamp = computeNsamp(dx_for);
+            return {
+              Nants: clamp(valN('Nants') | 0, 1, 5000),
+              L,
+              dx: INTERNAL_DX,
+              dx_for,
+              Nsamp,
+              dp: Number(document.getElementById('dp').value),
+              dpdt: Number(document.getElementById('dpdt').value),
+              D: Number(document.getElementById('D').value),
+              T: Number(document.getElementById('T').value),
+              theta_win: Number(document.getElementById('theta').value),
+              beta: Number(document.getElementById('beta').value),
+              pher_sat: Number(document.getElementById('sat').value),
+              pher_det: Number(document.getElementById('det').value),
+              attq: document.getElementById('attq').checked,
+              drawAnts: document.getElementById('drawAnts').checked,
+              stepsPerFrame: clamp(valN('spf') | 0, 1, 100),
+              scale: clamp(valN('scale'), 1, 20),
+              seed: valN('seed') | 0,
+              Datt: Math.max(1, valN('Datt')),
+              Datt_mag: Math.max(0, valN('Datt_mag')),
+            };
+          }
 
-// ===== Additional Tests (added) =====
-(function moreTests(){
-  const snap = snapshotUI();
-  const sel = document.getElementById('presetSelect');
-  console.assert(sel && sel.options.length === PRESETS.length + 1, 'dropdown has placeholder + all presets');
-  const before = sel.options.length;
-  populatePresetDropdown();
-  console.assert(sel.options.length === before, 'populatePresetDropdown is idempotent (no duplicates)');
-  // Changing selection via event should reset + pause
-  sel.value = '1';
-  sel.dispatchEvent(new Event('change', { bubbles:true }));
-  console.assert(app.frame === 0 && app.running === false, 'changing preset via dropdown resets & remains paused');
-  // Placeholder text
-  console.assert(sel.options[0].textContent.includes('Select'), 'dropdown placeholder is present');
-  // restore
-  restoreUI(snap);
-})();
+          init() {
+            this.p = this.paramsFromUI();
+            const L = this.p.L;
+            this.c.width = L;
+            this.c.height = L;
+            this.c.style.width = L * this.p.scale + 'px';
+            this.c.style.height = L * this.p.scale + 'px';
+            this.ctx.imageSmoothingEnabled = false;
+            this.imd = this.ctx.createImageData(L, L);
+            this.px = new Uint32Array(this.imd.data.buffer);
+            this.updateDerivedSaturation();
+            this.antPacked = packRGBA(0, 255, 255, 255);
+            this.rng = mulberry32(this.p.seed || 1);
 
-}); // onReady
-</script>
+            const Ns = this.p.Nsamp;
+            this.theta_vec = new Float32Array(Ns);
+            this.cos_th = new Float32Array(Ns);
+            this.sin_th = new Float32Array(Ns);
+            for (let k = 0; k < Ns; k++) {
+              const th = (k * TAU) / Ns;
+              this.theta_vec[k] = th;
+              this.cos_th[k] = Math.cos(th);
+              this.sin_th[k] = Math.sin(th);
+            }
+            this.probs = new Float32Array(Ns);
 
-</body>
+            const N = L * L;
+            this.pher = new Float32Array(N);
+            this.pher.fill(0);
+
+            const A = this.p.Nants;
+            this.ax = new Float32Array(A);
+            this.ay = new Float32Array(A);
+            this.at = new Float32Array(A);
+            this.vx = new Float32Array(A);
+            this.vy = new Float32Array(A);
+            for (let i = 0; i < A; i++) {
+              const th = this.rng() * TAU;
+              this.at[i] = th;
+              this.vx[i] = Math.cos(th);
+              this.vy[i] = Math.sin(th);
+              this.ax[i] = this.rng() * (L - 2) + 1;
+              this.ay[i] = this.rng() * (L - 2) + 1;
+            }
+
+            this.gk = buildGaussian1D(this.p.D);
+            this.rebuildAttractorStructures();
+
+            this.depositPheromone(this.ax, this.ay, this.p.dp);
+            if (this.p.attq) this.depositAttractors();
+            if (this.p.D > 0) this.pher = convolveToroidalSeparable(this.pher, L, this.gk);
+            this.applyDecay();
+
+            this.frame = 0;
+            this._accumFrames = 0;
+            this._fpsTick = performance.now();
+            this.render();
+          }
+
+          index(x, y) {
+            return (y | 0) * this.p.L + (x | 0);
+          }
+
+          bilinearSample(x, y) {
+            const L = this.p.L,
+              x0 = Math.floor(x),
+              y0 = Math.floor(y),
+              x1 = mod(x0 + 1, L),
+              y1 = mod(y0 + 1, L),
+              fx = x - x0,
+              fy = y - y0,
+              w1 = fx * fy,
+              w2 = (1 - fx) * fy,
+              w3 = (1 - fx) * (1 - fy),
+              w4 = fx * (1 - fy),
+              i11 = this.index(x1, y1),
+              i21 = this.index(x0, y1),
+              i31 = this.index(x0, y0),
+              i41 = this.index(x1, y0);
+            return (
+              this.pher[i11] * w1 +
+              this.pher[i21] * w2 +
+              this.pher[i31] * w3 +
+              this.pher[i41] * w4
+            );
+          }
+
+          depositPheromone(xs, ys, amount) {
+            const L = this.p.L,
+              N = xs.length;
+            for (let j = 0; j < N; j++) {
+              const x = xs[j],
+                y = ys[j],
+                x0 = Math.floor(x),
+                y0 = Math.floor(y),
+                x1 = mod(x0 + 1, L),
+                y1 = mod(y0 + 1, L),
+                fx = x - x0,
+                fy = y - y0,
+                w1 = fx * fy,
+                w2 = (1 - fx) * fy,
+                w3 = (1 - fx) * (1 - fy),
+                w4 = fx * (1 - fy);
+              this.pher[this.index(x1, y1)] += amount * w1;
+              this.pher[this.index(x0, y1)] += amount * w2;
+              this.pher[this.index(x0, y0)] += amount * w3;
+              this.pher[this.index(x1, y0)] += amount * w4;
+            }
+          }
+
+          applyDecay() {
+            const decay = Math.exp(-this.p.dpdt),
+              arr = this.pher,
+              n = arr.length;
+            for (let i = 0; i < n; i++) arr[i] *= decay;
+          }
+
+          updateDerivedSaturation() {
+            this.invSat = 1 / Math.max(1e-6, this.p.pher_sat);
+            let z = this.p.pher_det * this.invSat;
+            if (z > EXP_LUT_MAX) z = EXP_LUT_MAX;
+            else if (z < 0) z = 0;
+            this.detSatVal = EXP_LUT[(z * EXP_LUT_SCALE) | 0];
+          }
+
+          buildAttractorKernel(_size, Datt, scale) {
+            const S = computeAttSize(Datt),
+              half = (S - 1) / 2,
+              k = new Float32Array(S * S);
+            let minv = Infinity,
+              idx = 0;
+            for (let y = -half; y <= half; y++) {
+              for (let x = -half; x <= half; x++) {
+                const v = Math.exp(-(x * x + y * y) / (4 * Datt));
+                k[idx++] = v;
+                if (v < minv) minv = v;
+              }
+            }
+            let sum = 0;
+            for (let i = 0; i < k.length; i++) {
+              k[i] -= minv;
+              sum += k[i];
+            }
+            const norm = sum > 0 ? scale / sum : 0;
+            for (let i = 0; i < k.length; i++) k[i] *= norm;
+            return { data: k, size: S, half };
+          }
+
+          buildAttractorIndices() {
+            const L = this.p.L,
+              { size: S, half } = this.attKernel,
+              centers = [
+                [Math.round(L / 4), Math.round(L / 4)],
+                [Math.round((3 * L) / 4), Math.round((3 * L) / 4)],
+                [Math.round((3 * L) / 4), Math.round(L / 4)],
+                [Math.round(L / 4), Math.round((3 * L) / 4)],
+              ];
+            this.attIndexLists = centers.map(([cx, cy]) => {
+              const idxs = new Uint32Array(S * S);
+              let t = 0;
+              for (let dy = -half; dy <= half; dy++) {
+                const y = mod(cy + dy, L),
+                  rowBase = y * L;
+                for (let dx = -half; dx <= half; dx++) {
+                  const x = mod(cx + dx, L);
+                  idxs[t++] = rowBase + x;
+                }
+              }
+              return idxs;
+            });
+          }
+
+          rebuildAttractorStructures() {
+            this.attKernel = this.buildAttractorKernel(
+              computeAttSize(this.p.Datt),
+              this.p.Datt,
+              this.p.Datt_mag * this.p.dp
+            );
+            this.buildAttractorIndices();
+          }
+
+          rebuildSampling(Ns) {
+            this.p.Nsamp = Ns | 0;
+            const n = this.p.Nsamp;
+            this.theta_vec = new Float32Array(n);
+            this.cos_th = new Float32Array(n);
+            this.sin_th = new Float32Array(n);
+            for (let k = 0; k < n; k++) {
+              const th = (k * TAU) / n;
+              this.theta_vec[k] = th;
+              this.cos_th[k] = Math.cos(th);
+              this.sin_th[k] = Math.sin(th);
+            }
+            this.probs = new Float32Array(n);
+          }
+
+          stampKernel(cx, cy, kernel) {
+            const L = this.p.L,
+              S = kernel.size,
+              half = kernel.half,
+              data = kernel.data;
+            let t = 0;
+            for (let dy = -half; dy <= half; dy++) {
+              const y = mod(Math.round(cy) + dy, L);
+              for (let dx = -half; dx <= half; dx++) {
+                const x = mod(Math.round(cx) + dx, L);
+                this.pher[this.index(x, y)] += data[t++];
+              }
+            }
+          }
+
+          depositAttractors() {
+            if (!this.attIndexLists) return;
+            const data = this.attKernel.data,
+              n = data.length,
+              arr = this.pher;
+            for (const idxs of this.attIndexLists) {
+              for (let t = 0; t < n; t++) arr[idxs[t]] += data[t];
+            }
+          }
+
+          step() {
+            const A = this.p.Nants,
+              Ns = this.p.Nsamp,
+              L = this.p.L,
+              { dx, dx_for, T, beta, theta_win, dp } = this.p,
+              probs = this.probs;
+
+            for (let j = 0; j < A; j++) {
+              const x1 = this.ax[j],
+                y1 = this.ay[j],
+                vx = this.vx[j],
+                vy = this.vy[j],
+                th0 = this.at[j],
+                xf = mod(x1 + dx_for * vx, L),
+                yf = mod(y1 + dx_for * vy, L);
+
+              for (let k = 0; k < Ns; k++) {
+                const xt = mod(xf + dx * this.cos_th[k], L),
+                  yt = mod(yf + dx * this.sin_th[k], L),
+                  raw = this.bilinearSample(xt, yt);
+                let z = raw * this.invSat;
+                if (z > EXP_LUT_MAX) z = EXP_LUT_MAX;
+                else if (z < 0) z = 0;
+                const pher = EXP_LUT[(z * EXP_LUT_SCALE) | 0],
+                  dth = Math.abs(angleDiff(th0 - this.theta_vec[k])),
+                  gate =
+                    (1 / (1 + Math.exp(-beta * (dth + theta_win / 2)))) *
+                    (1 / (1 + Math.exp(beta * (dth - theta_win / 2))));
+                probs[k] = (pher < this.detSatVal ? 0 : pher) * gate;
+              }
+
+              const P = softmaxStable(probs, T),
+                choice = sampleFromProbs(this.rng, P),
+                cx = this.cos_th[choice],
+                cy = this.sin_th[choice],
+                x2 = mod(x1 + dx * cx, L),
+                y2 = mod(y1 + dx * cy, L);
+              this.ax[j] = x2;
+              this.ay[j] = y2;
+              this.at[j] = this.theta_vec[choice];
+              this.vx[j] = cx;
+              this.vy[j] = cy;
+            }
+
+            this.depositPheromone(this.ax, this.ay, dp);
+            if (this.p.attq) this.depositAttractors();
+            if (this.p.D > 0) {
+              this.pher = convolveToroidalSeparable(this.pher, L, this.gk);
+            }
+            this.applyDecay();
+            this.frame++;
+          }
+
+          render() {
+            const arr = this.pher,
+              invSat = this.invSat,
+              px = this.px;
+            for (let i = 0; i < arr.length; i++) {
+              let z = arr[i] * invSat;
+              if (z > EXP_LUT_MAX) z = EXP_LUT_MAX;
+              else if (z < 0) z = 0;
+              let vi = EXP_LUT[(z * EXP_LUT_SCALE) | 0];
+              if (vi < this.detSatVal) vi = 0;
+              const ci = (vi * 255 + 0.5) | 0;
+              px[i] = COLOR_LUT[ci];
+            }
+
+            if (this.p.drawAnts) {
+              const packed = this.antPacked,
+                L = this.p.L;
+              for (let i = 0; i < this.p.Nants; i++) {
+                const x0 = this.ax[i] | 0,
+                  y0 = this.ay[i] | 0;
+                px[y0 * L + x0] = packed;
+              }
+            }
+
+            this.ctx.putImageData(this.imd, 0, 0);
+
+            const stepEl = document.getElementById('statStep');
+            if (stepEl) stepEl.textContent = String(this.frame);
+
+            const fpsEl = document.getElementById('statFPS'),
+              now = performance.now();
+            this._accumFrames = (this._accumFrames || 0) + 1;
+            if (now - this._fpsTick > 500) {
+              const fpsExact = (1000 * this._accumFrames) / (now - this._fpsTick);
+              this.fps = Math.round(fpsExact * 10) / 10;
+              if (fpsEl) fpsEl.textContent = this.fps.toFixed(1);
+              this._accumFrames = 0;
+              this._fpsTick = now;
+            }
+          }
+        }
+
+        const cnv = document.getElementById('cnv'),
+          app = new AntSim(cnv);
+        let raf = null,
+          lastExportUrl = null,
+          APPLYING_PRESET = false;
+        let recorder = null,
+          recordedChunks = [],
+          recMime = '',
+          recUrl = null;
+
+        const isRecording = () => recorder && recorder.state === 'recording';
+
+        function pickMimeType(preferMp4) {
+          const c = [];
+          if (preferMp4) {
+            c.push('video/mp4;codecs=h264', 'video/mp4');
+          }
+          c.push('video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm');
+          for (const t of c) {
+            if (window.MediaRecorder && MediaRecorder.isTypeSupported(t)) return t;
+          }
+          return '';
+        }
+
+        function setRecNotice(msg) {
+          const n = document.getElementById('recNotice');
+          if (!n) return;
+          n.textContent = msg;
+          n.style.display = msg ? 'block' : 'none';
+        }
+
+        function loop() {
+          if (!app.running) return;
+          const steps = app.p.stepsPerFrame;
+          for (let i = 0; i < steps; i++) app.step();
+          app.render();
+          raf = requestAnimationFrame(loop);
+        }
+
+        function start() {
+          if (!app.running) {
+            app.running = true;
+            raf = requestAnimationFrame(loop);
+          }
+        }
+
+        function pause() {
+          app.running = false;
+          if (raf) cancelAnimationFrame(raf);
+        }
+
+        function reset() {
+          if (isRecording()) stopRecording(true);
+          pause();
+          app.init();
+          const fpsEl = document.getElementById('statFPS');
+          if (fpsEl) fpsEl.textContent = '0.0';
+        }
+
+        const $ = (id) => document.getElementById(id);
+        $('startBtn').onclick = start;
+        $('pauseBtn').onclick = pause;
+        $('resetBtn').onclick = reset;
+        $('stepBtn').onclick = () => {
+          if (!app.running) {
+            app.step();
+            app.render();
+          } else {
+            app.p.stepsPerFrame = 1;
+          }
+        };
+
+        $('exportBtn').onclick = () => {
+          const name = `ant_sim_${new Date().toISOString().replace(/[:.]/g, '-')}.png`,
+            notice = document.getElementById('exportNotice'),
+            link = document.getElementById('exportLink'),
+            showLink = (href) => {
+              try {
+                if (lastExportUrl && lastExportUrl.startsWith('blob:'))
+                  URL.revokeObjectURL(lastExportUrl);
+              } catch (e) {}
+              lastExportUrl = href;
+              if (link) {
+                link.href = href;
+                link.setAttribute('download', name);
+              }
+              if (notice) notice.style.display = 'block';
+              setTimeout(() => {
+                try {
+                  link && link.click();
+                } catch (e) {}
+              }, 0);
+            };
+
+          try {
+            if (cnv.toBlob) {
+              cnv.toBlob(
+                (blob) => {
+                  if (blob) {
+                    const url = URL.createObjectURL(blob);
+                    showLink(url);
+                  } else {
+                    showLink(cnv.toDataURL('image/png'));
+                  }
+                },
+                'image/png'
+              );
+            } else {
+              showLink(cnv.toDataURL('image/png'));
+            }
+          } catch (err) {
+            console.error('Export failed:', err);
+            if (notice) {
+              notice.textContent = 'Export failed. See console for details.';
+              notice.style.display = 'block';
+            }
+          }
+        };
+
+        $('recStartBtn').onclick = startRecording;
+        $('recStopBtn').onclick = () => stopRecording(false);
+
+        function startRecording() {
+          try {
+            if (!('captureStream' in cnv)) {
+              setRecNotice('Your browser does not support canvas.captureStream.');
+              return;
+            }
+            const fps = clamp(Number($('recFps').value) || 60, 1, 120),
+              stream = cnv.captureStream(fps),
+              mime = pickMimeType($('recPreferMp4').checked);
+            if (!mime) {
+              setRecNotice('MediaRecorder not supported for MP4/WebM in this browser.');
+              return;
+            }
+            if (recUrl) {
+              try {
+                URL.revokeObjectURL(recUrl);
+              } catch (e) {}
+              recUrl = null;
+            }
+            recordedChunks = [];
+            recMime = mime;
+            recorder = new MediaRecorder(stream, {
+              mimeType: mime,
+              videoBitsPerSecond: 6_000_000,
+            });
+            recorder.ondataavailable = (e) => {
+              if (e.data && e.data.size > 0) recordedChunks.push(e.data);
+            };
+            recorder.onstop = () => {
+              const blob = new Blob(recordedChunks, { type: recMime }),
+                ext = recMime.includes('mp4') ? 'mp4' : 'webm',
+                name = `ant_sim_${new Date().toISOString().replace(/[:.]/g, '-')}.${ext}`;
+              recUrl = URL.createObjectURL(blob);
+              setRecNotice(`Saved ${ext.toUpperCase()} — click to download.`);
+              const a = document.createElement('a');
+              a.href = recUrl;
+              a.download = name;
+              a.click();
+            };
+            recorder.start(100);
+            $('recStartBtn').disabled = true;
+            $('recStopBtn').disabled = false;
+            setRecNotice(`Recording… ${recMime}`);
+            if (!app.running) start();
+          } catch (err) {
+            console.error('Recording failed:', err);
+            setRecNotice('Recording failed. See console for details.');
+          }
+        }
+
+        function stopRecording(fromReset) {
+          try {
+            if (recorder && recorder.state !== 'inactive') {
+              recorder.stop();
+            }
+          } catch (e) {
+            console.warn('stopRecording error:', e);
+          }
+          $('recStartBtn').disabled = false;
+          $('recStopBtn').disabled = true;
+          if (fromReset) {
+            setRecNotice('Recording stopped due to Reset.');
+          }
+        }
+
+        $('dxfor').addEventListener('change', () => {
+          if (APPLYING_PRESET) return;
+          const Ns = computeNsamp(Number($('dxfor').value));
+          app.rebuildSampling(Ns);
+        });
+
+        $('scale').addEventListener('change', () => {
+          if (APPLYING_PRESET) return;
+          const sc = clamp(parseFloat($('scale').value), 1, 20),
+            L = Number($('L').value) | 0;
+          cnv.style.width = L * sc + 'px';
+          cnv.style.height = L * sc + 'px';
+        });
+
+        $('L').addEventListener('change', () => {
+          if (APPLYING_PRESET) return;
+          const sc = clamp(parseFloat($('scale').value), 1, 20),
+            L = Number($('L').value) | 0;
+          cnv.style.width = L * sc + 'px';
+          cnv.style.height = L * sc + 'px';
+        });
+
+        function wireLiveControls() {
+          const $ = (id) => document.getElementById(id),
+            num = (id, fn) =>
+              $(id).addEventListener('input', () => {
+                if (APPLYING_PRESET) return;
+                fn(Number($(id).value));
+              }),
+            chk = (id, fn) =>
+              $(id).addEventListener('change', () => {
+                if (APPLYING_PRESET) return;
+                fn($(id).checked);
+              });
+
+          num('dpdt', (v) => (app.p.dpdt = Math.max(0, v)));
+          num('dp', (v) => {
+            app.p.dp = Math.max(0, v);
+            app.rebuildAttractorStructures();
+          });
+          num('D', (v) => {
+            app.p.D = Math.max(0, v);
+            app.gk = buildGaussian1D(app.p.D);
+          });
+          num('T', (v) => (app.p.T = Math.max(1e-6, v)));
+          num('theta', (v) => (app.p.theta_win = v));
+          num('beta', (v) => (app.p.beta = v));
+          num('dxfor', (v) => {
+            app.p.dx_for = v;
+            const Ns = computeNsamp(v);
+            app.rebuildSampling(Ns);
+          });
+          num('sat', (v) => {
+            app.p.pher_sat = Math.max(1, v);
+            if (app.p.pher_det > app.p.pher_sat) app.p.pher_det = app.p.pher_sat;
+            app.updateDerivedSaturation();
+          });
+          num('det', (v) => {
+            app.p.pher_det = Math.max(0, Math.min(v, app.p.pher_sat));
+            app.updateDerivedSaturation();
+          });
+          chk('attq', (v) => (app.p.attq = v));
+          chk('drawAnts', (v) => (app.p.drawAnts = v));
+          num('spf', (v) => (app.p.stepsPerFrame = Math.max(1, v | 0)));
+          num('Datt', (v) => {
+            app.p.Datt = Math.max(1, v);
+            app.rebuildAttractorStructures();
+          });
+          num('Datt_mag', (v) => {
+            app.p.Datt_mag = Math.max(0, v);
+            app.rebuildAttractorStructures();
+          });
+        }
+
+        const PRESETS = [
+          {
+            name:'1. Dynamic Noodles',
+            vals:{ L:300, Nants:100, dp:1, dpdt:0.01, D:0, sat:10, det:0, T:0.01, theta:2.5, beta:5, dxfor:2, attq:false, Datt:50, Datt_mag:15, drawAnts:true, scale:2, spf:50 }
+          },
+          {
+            name:'2. Dynamic Road Networks',
+            vals:{ L:300, Nants:100, dp:1, dpdt:0.003, D:0, sat:10, det:0, T:0.01, theta:0.5, beta:5, dxfor:2, attq:false, Datt:50, Datt_mag:15, drawAnts:true, scale:2, spf:50 }
+          },
+          {
+            name:'3. Phase Coarsening #1',
+            vals:{ L:200, Nants:1200, dp:2, dpdt:0.002, D:0.05, sat:40, det:0, T:0.1, theta:5, beta:1, dxfor:2, attq:false, Datt:50, Datt_mag:5, drawAnts:false, scale:3, spf:10 }
+          },
+          {
+            name:'4. Looped Network w/Attractors #1',
+            vals:{ L:300, Nants:300, dp:1, dpdt:0.003, D:0, sat:10, det:0, T:0.01, theta:2.75, beta:100, dxfor:2, attq:true, Datt:50, Datt_mag:5, drawAnts:true, scale:2, spf:20 }
+          },
+          {
+            name:'5. Looped Network w/Attractors #2 (play with theta)',
+            vals:{ L:300, Nants:500, dp:3, dpdt:0.003, D:0, sat:10, det:0, T:0.05, theta:2.5, beta:5, dxfor:2, attq:true, Datt:50, Datt_mag:5, drawAnts:true, scale:2, spf:20 }
+          },
+          {
+            name:'6. Fine-scale Road Networks',
+            vals:{ L:300, Nants:300, dp:1, dpdt:0.003, D:0, sat:10, det:0, T:0.01, theta:0.5, beta:10, dxfor:2, attq:false, Datt:50, Datt_mag:15, drawAnts:true, scale:2, spf:50 }
+          },
+        ];
+
+        function applyPreset(v) {
+          APPLYING_PRESET = true;
+          try {
+            const map = {
+              Nants: 'Nants',
+              L: 'L',
+              dxfor: 'dxfor',
+              dp: 'dp',
+              dpdt: 'dpdt',
+              D: 'D',
+              sat: 'sat',
+              det: 'det',
+              T: 'T',
+              theta: 'theta',
+              beta: 'beta',
+              attq: 'attq',
+              Datt: 'Datt',
+              Datt_mag: 'Datt_mag',
+              drawAnts: 'drawAnts',
+              scale: 'scale',
+              spf: 'spf',
+            };
+            for (const [k, id] of Object.entries(map)) {
+              if (!Object.prototype.hasOwnProperty.call(v, k)) continue;
+              const el = document.getElementById(id);
+              if (!el) continue;
+              if (el.type === 'checkbox') {
+                el.checked = !!v[k];
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+              } else {
+                el.value = String(v[k]);
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+              }
+            }
+          } finally {
+            APPLYING_PRESET = false;
+          }
+          const psel = document.getElementById('presetSelect');
+          if (psel) {
+            const idx = PRESETS.findIndex((p) => p.vals === v);
+            if (idx >= 0) psel.value = String(idx);
+          }
+          reset();
+        }
+
+        const presetSelect = document.getElementById('presetSelect');
+
+        function populatePresetDropdown() {
+          const frag = document.createDocumentFragment(),
+            def = document.createElement('option');
+          def.value = '';
+          def.textContent = '— Select a preset —';
+          frag.appendChild(def);
+          PRESETS.forEach((p, i) => {
+            const opt = document.createElement('option');
+            opt.value = String(i);
+            opt.textContent = p.name;
+            frag.appendChild(opt);
+          });
+          presetSelect.replaceChildren(frag);
+        }
+
+        populatePresetDropdown();
+
+        presetSelect.addEventListener('change', () => {
+          if (presetSelect.value === '') return;
+          const idx = Number(presetSelect.value);
+          if (!Number.isNaN(idx) && PRESETS[idx]) applyPreset(PRESETS[idx].vals);
+        });
+
+        presetSelect.value = '0';
+        applyPreset(PRESETS[0].vals);
+        wireLiveControls();
+
+        function snapshotUI() {
+          const ids = [
+              'Nants',
+              'L',
+              'dxfor',
+              'dp',
+              'dpdt',
+              'D',
+              'sat',
+              'det',
+              'T',
+              'theta',
+              'beta',
+              'Datt',
+              'Datt_mag',
+              'scale',
+              'seed',
+              'spf',
+            ],
+            checks = ['attq', 'drawAnts'],
+            snap = {
+              values: {},
+              checks: {},
+              preset: document.getElementById('presetSelect').value,
+            };
+          for (const id of ids) {
+            const el = document.getElementById(id);
+            if (el) snap.values[id] = el.value;
+          }
+          for (const id of checks) {
+            const el = document.getElementById(id);
+            if (el) snap.checks[id] = !!el.checked;
+          }
+          return snap;
+        }
+
+        function restoreUI(snap) {
+          if (!snap) return;
+          APPLYING_PRESET = true;
+          try {
+            for (const [id, val] of Object.entries(snap.values)) {
+              const el = document.getElementById(id);
+              if (el) el.value = val;
+            }
+            for (const [id, ck] of Object.entries(snap.checks)) {
+              const el = document.getElementById(id);
+              if (el) el.checked = !!ck;
+            }
+            const psel = document.getElementById('presetSelect');
+            if (psel) psel.value = snap.preset;
+          } finally {
+            APPLYING_PRESET = false;
+          }
+          reset();
+        }
+
+        (function selfTests() {
+          const S = snapshotUI();
+          console.assert(
+            JSON.stringify(hotRGB(0)) === JSON.stringify([0, 0, 0]),
+            'hotRGB(0)'
+          );
+          const w = hotRGB(1);
+          console.assert(
+            w[0] === 255 && w[1] === 255 && w[2] === 255,
+            'hotRGB(1)'
+          );
+          const g = buildGaussian1D(2.0);
+          let s = 0;
+          for (let i = 0; i < g.length; i++) s += g[i];
+          console.assert(Math.abs(s - 1) < 1e-5, 'gaussian norm');
+          const arr = new Float32Array([1, 2, 3, 4]);
+          const back = convolveToroidalSeparable(arr, 2, new Float32Array([1]));
+          console.assert(
+            back.length === arr.length && back[0] === 1 && back[3] === 4,
+            'identity conv'
+          );
+          console.assert(!!document.getElementById('statStep'), 'statStep');
+          console.assert(!!document.getElementById('statFPS'), 'statFPS');
+          console.assert(!!document.getElementById('exportBtn'), 'exportBtn');
+          console.assert(!!document.getElementById('exportLink'), 'exportLink');
+          console.assert(
+            !!document.getElementById('presetSelect'),
+            'presetSelect'
+          );
+          console.assert(computeNsamp(0) === 8, 'Nsamp min');
+          console.assert(
+            computeNsamp(2) === 8 * Math.round(Math.PI * 2),
+            'Nsamp formula'
+          );
+          console.assert(computeNsamp(10) === 120, 'Nsamp max');
+          console.assert(
+            computeAttSize(10) % 2 === 1 && computeAttSize(10) >= 30,
+            'att odd'
+          );
+          console.assert(
+            computeAttSize(1) >= 3 && computeAttSize(1) % 2 === 1,
+            'att min'
+          );
+          console.assert(
+            app.p.Nsamp === computeNsamp(app.p.dx_for),
+            'Nsamp consistent'
+          );
+          const testNs = computeNsamp(3);
+          app.rebuildSampling(testNs);
+          console.assert(
+            app.theta_vec.length === testNs,
+            'rebuild size'
+          );
+          console.assert(
+            typeof document.getElementById('exportBtn').onclick === 'function',
+            'export wired'
+          );
+          console.assert(
+            Number(document.getElementById('L').value) === PRESETS[0].vals.L,
+            'init L'
+          );
+          console.assert(
+            document.getElementById('attq').checked === PRESETS[0].vals.attq,
+            'init attq'
+          );
+          console.assert(
+            Number(document.getElementById('spf').value) === PRESETS[0].vals.spf,
+            'init spf'
+          );
+          reset();
+          console.assert(
+            document.getElementById('statFPS').textContent === '0.0',
+            'fps 0 after reset'
+          );
+          const seedBefore = Number(document.getElementById('seed').value);
+          applyPreset(PRESETS[0].vals);
+          console.assert(
+            Number(document.getElementById('Nants').value) ===
+              PRESETS[0].vals.Nants,
+            'preset Nants'
+          );
+          console.assert(
+            Number(document.getElementById('dp').value) ===
+              PRESETS[0].vals.dp,
+            'preset dp'
+          );
+          console.assert(
+            Number(document.getElementById('dpdt').value) ===
+              PRESETS[0].vals.dpdt,
+            'preset dpdt'
+          );
+          console.assert(
+            Number(document.getElementById('D').value) === PRESETS[0].vals.D,
+            'preset D'
+          );
+          console.assert(
+            Number(document.getElementById('T').value) === PRESETS[0].vals.T,
+            'preset T'
+          );
+          console.assert(
+            Number(document.getElementById('theta').value) ===
+              PRESETS[0].vals.theta,
+            'preset theta'
+          );
+          console.assert(
+            Number(document.getElementById('beta').value) ===
+              PRESETS[0].vals.beta,
+            'preset beta'
+          );
+          console.assert(
+            Number(document.getElementById('dxfor').value) ===
+              PRESETS[0].vals.dxfor,
+            'preset dxfor'
+          );
+          console.assert(
+            document.getElementById('attq').checked === PRESETS[0].vals.attq,
+            'preset attq'
+          );
+          console.assert(
+            Number(document.getElementById('spf').value) ===
+              PRESETS[0].vals.spf,
+            'preset spf'
+          );
+          console.assert(
+            Number(document.getElementById('det').value) ===
+              PRESETS[0].vals.det,
+            'preset det'
+          );
+          console.assert(app.p.L === PRESETS[0].vals.L, 'app L');
+          console.assert(app.frame === 0 && !app.running, 'frame 0 paused');
+          console.assert(
+            Number(document.getElementById('seed').value) === seedBefore,
+            'seed unchanged'
+          );
+          console.assert(app.p.dx === 1, 'INTERNAL_DX==1');
+          console.assert(typeof app.detSatVal === 'number', 'detSatVal num');
+          const oldSat = app.p.pher_sat,
+            oldDet = app.p.pher_det;
+          app.p.pher_sat = 50;
+          app.p.pher_det = 10;
+          app.updateDerivedSaturation();
+          console.assert(
+            app.detSatVal > 0 && app.detSatVal < 1,
+            'detSat in (0,1)'
+          );
+          const prevDet = app.detSatVal;
+          app.p.pher_det = 20;
+          app.updateDerivedSaturation();
+          console.assert(app.detSatVal > prevDet, 'detSat monotonic');
+          app.p.pher_det = 5;
+          app.p.pher_sat = 10;
+          app.updateDerivedSaturation();
+          app.pher.fill(0);
+          app.pher[0] = 1;
+          app.render();
+          console.assert(app.px[0] === COLOR_LUT[0], 'gate below det');
+          app.p.pher_sat = oldSat;
+          app.p.pher_det = oldDet;
+          app.updateDerivedSaturation();
+          applyPreset(PRESETS[1].vals);
+          console.assert(
+            Number(document.getElementById('theta').value) ===
+              PRESETS[1].vals.theta,
+            'preset[1] theta'
+          );
+          console.assert(app.frame === 0 && !app.running, 'preset[1] paused');
+          restoreUI(S);
+        })();
+
+        (function moreTests() {
+          const snap = snapshotUI(),
+            sel = document.getElementById('presetSelect');
+          console.assert(
+            sel && sel.options.length === PRESETS.length + 1,
+            'dropdown has placeholder+all'
+          );
+          const before = sel.options.length;
+          populatePresetDropdown();
+          console.assert(sel.options.length === before, 'populate idempotent');
+          sel.value = '1';
+          sel.dispatchEvent(new Event('change', { bubbles: true }));
+          console.assert(app.frame === 0 && !app.running, 'change preset resets & pauses');
+          console.assert(sel.options[0].textContent.includes('Select'), 'placeholder present');
+          console.assert(
+            !!document.getElementById('recStartBtn') &&
+              !!document.getElementById('recStopBtn') &&
+              !!document.getElementById('recFps'),
+            'record UI exists'
+          );
+          if (typeof cnv.captureStream === 'function') {
+            const t = pickMimeType(true) || pickMimeType(false);
+            console.assert(typeof t === 'string', 'pickMimeType returns string');
+          }
+          restoreUI(snap);
+        });
+      });
+    </script>
+  </body>
 </html>
