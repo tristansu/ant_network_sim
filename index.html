@@ -187,6 +187,15 @@
           <button id="exportBtn">Export PNG</button>
         </div>
 
+        <!-- Shareable Link -->
+        <div class="btns" id="shareRow">
+          <button id="shareBtn">Get Shareable Link</button>
+        </div>
+        
+        <div id="shareNotice" class="note" style="display:none; margin-top: 6px">
+          Link ready: <a id="shareLink" class="btn-link" target="_blank" rel="noopener">Open</a> <span id="shareCopyStatus"></span>
+        </div>
+        
         <div
           id="exportNotice"
           class="note"
@@ -1106,6 +1115,62 @@
               }, 0);
             };
 
+          // ----- Shareable Link support -----
+          function encodeSnapToUrlParam(snap) {
+            // Compact & robust: JSON → UTF-8 → base64url
+            const json = JSON.stringify(snap);
+            const b64 = btoa(unescape(encodeURIComponent(json)))
+              .replace(/\+/g, '-')
+              .replace(/\//g, '_')
+              .replace(/=+$/, '');
+            return b64;
+          }
+          
+          function decodeSnapFromUrlParam(b64) {
+            const pad = (s) => s + '==='.slice((s.length + 3) % 4);
+            const b64std = pad(b64.replace(/-/g, '+').replace(/_/g, '/'));
+            const json = decodeURIComponent(escape(atob(b64std)));
+            return JSON.parse(json);
+          }
+          
+          function makeShareUrl() {
+            const snap = snapshotUI();
+            const url = new URL(window.location.href);
+            url.searchParams.set('s', encodeSnapToUrlParam(snap));
+            return url.toString();
+          }
+          
+          function setShareNotice(url, copied) {
+            const notice = document.getElementById('shareNotice');
+            const link = document.getElementById('shareLink');
+            const status = document.getElementById('shareCopyStatus');
+            if (link) link.href = url;
+            if (status) status.textContent = copied ? '— copied to clipboard' : '';
+            if (notice) notice.style.display = 'block';
+          }
+          
+          $('shareBtn').onclick = async () => {
+            try {
+              const url = makeShareUrl();
+              try {
+                await navigator.clipboard.writeText(url);
+                setShareNotice(url, true);
+              } catch (e) {
+                // Clipboard may be blocked; still show the link
+                setShareNotice(url, false);
+              }
+              // Also push it into the address bar so the user can bookmark current state
+              history.replaceState(null, '', url);
+            } catch (err) {
+              console.error('Share link failed:', err);
+              const notice = document.getElementById('shareNotice');
+              if (notice) {
+                notice.textContent = 'Failed to create link. See console for details.';
+                notice.style.display = 'block';
+              }
+            }
+          };
+
           try {
             if (cnv.toBlob) {
               cnv.toBlob(
@@ -1380,9 +1445,36 @@
           if (!Number.isNaN(idx) && PRESETS[idx]) applyPreset(PRESETS[idx].vals);
         });
 
-        presetSelect.value = '0';
-        applyPreset(PRESETS[0].vals);
         wireLiveControls();
+
+        // Optional: keep URL updated as controls change (no clipboard copy here)
+        (function wireUrlAutoUpdate() {
+            const ids = [
+              'Nants','L','dxfor','dp','dpdt','D','sat','det','T','theta',
+              'beta','Datt','Datt_mag','scale','seed','spf','presetSelect'
+            ];
+            const checks = ['attq','drawAnts'];
+            const onChange = () => {
+              const url = new URL(window.location.href);
+              url.searchParams.set('s', encodeSnapToUrlParam(snapshotUI()));
+              history.replaceState(null, '', url.toString());
+            };
+            ids.forEach(id => {
+              const el = document.getElementById(id);
+              if (el) { el.addEventListener('input', onChange); el.addEventListener('change', onChange); }
+            });
+            checks.forEach(id => {
+              const el = document.getElementById(id);
+              if (el) el.addEventListener('change', onChange);
+            });
+          })();
+
+        // First, try to restore from shared URL. If none, fall back to default preset.
+        const usedURL = tryLoadFromUrl();
+        if (!usedURL) {
+          presetSelect.value = '0';
+          applyPreset(PRESETS[0].vals);
+        }
 
         function snapshotUI() {
           const ids = [
@@ -1438,6 +1530,20 @@
             APPLYING_PRESET = false;
           }
           reset();
+        }
+
+        function tryLoadFromUrl() {
+          const url = new URL(window.location.href);
+          const enc = url.searchParams.get('s');
+          if (!enc) return false;
+          try {
+            const snap = decodeSnapFromUrlParam(enc);
+            restoreUI(snap); // restoreUI calls reset()
+            return true;
+          } catch (e) {
+            console.warn('Failed to decode shared state:', e);
+            return false;
+          }
         }
 
         (function selfTests() {
