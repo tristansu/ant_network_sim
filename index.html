@@ -1,0 +1,1514 @@
+<!DOCTYPE html>
+<!-- saved from url=(0044)https://tristansu.github.io/ant-path-simulator/ -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Simple Traffic Model Simulator</title>
+  <style>
+    :root {
+      --bg: #0e0f12;
+      --panel: #14161b;
+      --muted: #828aa0;
+      --text: #e8ebf2;
+      --accent: #6ee7ff;
+      --accent2: #a78bfa;
+      --good: #86efac;
+      --warn: #fbbf24;
+      --danger: #fb7185;
+      --grid-gap: 14px;
+      --radius: 14px;
+    }
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: radial-gradient(circle at top left, #111827, #020617 55%);
+      color: var(--text);
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+      padding: 20px;
+    }
+    main {
+      display: grid;
+      grid-template-columns: minmax(280px, 380px) minmax(320px, 640px);
+      gap: var(--grid-gap);
+      max-width: 1100px;
+      width: 100%;
+    }
+    .card {
+      background: rgba(15, 23, 42, 0.9);
+      border-radius: var(--radius);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      padding: 16px 18px 12px 18px;
+      box-shadow:
+        0 18px 45px rgba(15, 23, 42, 0.85),
+        0 0 0 1px rgba(15, 23, 42, 0.8);
+      backdrop-filter: blur(16px);
+    }
+    h1 {
+      font-size: 1.3rem;
+      margin: 0 0 6px;
+      letter-spacing: 0.02em;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    h1 span.badge {
+      font-size: 0.7rem;
+      font-weight: 500;
+      padding: 1px 6px;
+      border-radius: 999px;
+      border: 1px solid rgba(110, 231, 183, 0.6);
+      color: #bbf7d0;
+      background: radial-gradient(circle at top left, rgba(21, 128, 61, 0.36), rgba(6, 95, 70, 0.1));
+    }
+    .subtitle {
+      margin: 0 0 13px;
+      font-size: 0.84rem;
+      color: var(--muted);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px 10px;
+      margin-bottom: 10px;
+    }
+    .row {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      font-size: 0.8rem;
+    }
+    .row label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 0.76rem;
+    }
+    .row label span.name {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .row label span.badge {
+      font-size: 0.6rem;
+      padding: 1px 5px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      color: #e5e7eb;
+      background: radial-gradient(circle at top left, rgba(30, 64, 175, 0.4), rgba(15, 23, 42, 0.95));
+    }
+    .row small {
+      font-size: 0.7rem;
+      color: rgba(148, 163, 184, 0.9);
+    }
+    .row input[type="number"],
+    .row input[type="text"],
+    .row select {
+      margin-top: 2px;
+      font: inherit;
+      font-size: 0.8rem;
+      padding: 5px 7px;
+      border-radius: 9px;
+      border: 1px solid rgba(30, 64, 175, 0.7);
+      background: radial-gradient(circle at top left, rgba(30, 64, 175, 0.55), rgba(15, 23, 42, 0.92));
+      color: #e5e7eb;
+      outline: none;
+      transition: border-color 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+    }
+    .row input[type="number"]:focus,
+    .row input[type="text"]:focus,
+    .row select:focus {
+      border-color: rgba(129, 140, 248, 0.95);
+      box-shadow: 0 0 0 1px rgba(129, 140, 248, 0.5);
+      background: radial-gradient(circle at top left, rgba(30, 64, 175, 0.7), rgba(15, 23, 42, 0.97));
+    }
+    .row input[type="number"]::-webkit-outer-spin-button,
+    .row input[type="number"]::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    .row input[type="number"] {
+      -moz-appearance: textfield;
+    }
+    .row select {
+      cursor: pointer;
+    }
+    .row select option {
+      background: #020617;
+      color: #e5e7eb;
+    }
+    .section-title {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: rgba(148, 163, 184, 0.9);
+      margin: 9px 0 5px;
+      border-top: 1px dashed rgba(51, 65, 85, 0.8);
+      padding-top: 6px;
+    }
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 8px 0 6px;
+    }
+    button {
+      font: inherit;
+      font-size: 0.8rem;
+      border-radius: 999px;
+      border: 1px solid rgba(56, 189, 248, 0.9);
+      background: radial-gradient(circle at top left, rgba(8, 47, 73, 0.9), rgba(15, 23, 42, 0.95));
+      color: #e5e7eb;
+      padding: 4px 10px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition:
+        background 0.12s ease,
+        border-color 0.12s ease,
+        transform 0.08s ease,
+        box-shadow 0.12s ease;
+      box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.0);
+    }
+    button span.icon {
+      font-size: 0.9em;
+      opacity: 0.9;
+    }
+    button:hover {
+      border-color: rgba(125, 211, 252, 1);
+      background: radial-gradient(circle at top left, rgba(8, 47, 73, 1), rgba(15, 23, 42, 1));
+      box-shadow: 0 0 24px rgba(56, 189, 248, 0.25);
+      transform: translateY(-0.5px);
+    }
+    button:active {
+      transform: translateY(0.5px) scale(0.99);
+      box-shadow: 0 0 14px rgba(56, 189, 248, 0.15);
+    }
+    button.secondary {
+      border-color: rgba(148, 163, 184, 0.9);
+      background: radial-gradient(circle at top left, rgba(15, 23, 42, 0.97), rgba(15, 23, 42, 1));
+      color: rgba(226, 232, 240, 0.95);
+    }
+    button.secondary:hover {
+      border-color: rgba(226, 232, 240, 0.95);
+      background: radial-gradient(circle at top left, rgba(30, 64, 175, 0.7), rgba(15, 23, 42, 1));
+      box-shadow: 0 0 22px rgba(129, 140, 248, 0.2);
+    }
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin: 8px 0 4px;
+      font-size: 0.75rem;
+    }
+    .metric {
+      padding: 6px 8px 7px;
+      border-radius: 10px;
+      background: radial-gradient(circle at top left, rgba(15, 23, 42, 1), rgba(15, 23, 42, 0.92));
+      border: 1px solid rgba(51, 65, 85, 0.9);
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .metric-label {
+      color: var(--muted);
+      font-size: 0.7rem;
+      letter-spacing: 0.02em;
+    }
+    .metric-value {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #e5e7eb;
+    }
+    .metric-value span.unit {
+      font-size: 0.7rem;
+      font-weight: 500;
+      color: rgba(148, 163, 184, 0.95);
+      margin-left: 3px;
+    }
+    .status-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+    .status-pill {
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 0.72rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      border: 1px solid rgba(34, 197, 94, 0.9);
+      background: radial-gradient(circle at top left, rgba(22, 101, 52, 0.75), rgba(15, 23, 42, 0.98));
+      color: #bbf7d0;
+    }
+    .status-pill span.dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(74, 222, 128, 1);
+      box-shadow: 0 0 10px rgba(74, 222, 128, 0.8);
+    }
+    .status-pill.paused {
+      border-color: rgba(249, 115, 22, 0.9);
+      background: radial-gradient(circle at top left, rgba(154, 52, 18, 0.75), rgba(15, 23, 42, 0.98));
+      color: #fed7aa;
+    }
+    .status-pill.paused span.dot {
+      background: rgba(249, 115, 22, 1);
+      box-shadow: 0 0 10px rgba(249, 115, 22, 0.8);
+    }
+    .footer {
+      margin-top: 8px;
+      font-size: 0.7rem;
+      color: rgba(148, 163, 184, 0.75);
+      text-align: left;
+    }
+    .footer a {
+      color: rgba(129, 140, 248, 0.95);
+      text-decoration: none;
+    }
+    .footer a:hover {
+      text-decoration: underline;
+    }
+    .row.checkbox-row {
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .row.checkbox-row label {
+      flex-direction: row;
+      align-items: center;
+      gap: 6px;
+    }
+    .row.checkbox-row input[type='checkbox'] {
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      accent-color: rgba(56, 189, 248, 0.95);
+    }
+    .notice {
+      font-size: 0.7rem;
+      color: #fef9c3;
+      background: rgba(250, 204, 21, 0.08);
+      border-radius: 8px;
+      border: 1px solid rgba(250, 204, 21, 0.3);
+      padding: 5px 7px;
+      margin-top: 6px;
+      display: none;
+    }
+    .notice strong {
+      color: #facc15;
+    }
+    .rec-controls {
+      margin-top: 8px;
+      padding-top: 6px;
+      border-top: 1px dashed rgba(51, 65, 85, 0.8);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .rec-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .rec-label {
+      font-size: 0.7rem;
+      color: rgba(148, 163, 184, 0.95);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+    .rec-label span.value {
+      font-weight: 600;
+      color: #e5e7eb;
+    }
+    .rec-label span.dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(148, 163, 184, 0.9);
+      box-shadow: 0 0 10px rgba(148, 163, 184, 0.7);
+    }
+    .rec-label span.dot.recording {
+      background: rgba(239, 68, 68, 1);
+      box-shadow: 0 0 12px rgba(239, 68, 68, 0.95);
+    }
+    .export-controls {
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px dashed rgba(51, 65, 85, 0.8);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .export-controls .row {
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .export-controls input[type='text'] {
+      width: 100%;
+      font-size: 0.72rem;
+      padding: 4px 6px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.8);
+      background: rgba(15, 23, 42, 0.95);
+      color: rgba(226, 232, 240, 0.95);
+    }
+    @media (max-width: 880px) {
+      body {
+        padding: 10px;
+      }
+      main {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .card {
+        padding: 14px 14px 10px 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="card">
+      <h1>
+        Traffic Flow &amp; Congestion Simulator
+        <span class="badge">Interactive</span>
+      </h1>
+      <p class="subtitle">
+        A simple model of cars moving around a circular track, interacting through a
+        local “braking” rule. Explore how microscopic rules create emergent traffic
+        jams and wave patterns.
+      </p>
+
+      <div class="section-title">Core parameters</div>
+      <div class="grid">
+        <div class="row">
+          <label>
+            <span class="name">
+              Track size
+              <span class="badge">L</span>
+            </span>
+          </label>
+          <input id="L" type="number" min="32" max="1024" step="16" value="256">
+          <small>Number of cells around the loop.</small>
+        </div>
+
+        <div class="row">
+          <label>
+            <span class="name">
+              Number of cars
+              <span class="badge">N</span>
+            </span>
+          </label>
+          <input id="Nants" type="number" min="10" max="5000" step="10" value="350">
+          <small>Total number of cars on the track.</small>
+        </div>
+
+        <div class="row">
+          <label>
+            <span class="name">
+              Sample directions
+              <span class="badge">N<sub>θ</sub></span>
+            </span>
+          </label>
+          <input id="Nsamp" type="number" min="8" max="2048" step="8" value="64">
+          <small>Angular samples used when looking ahead.</small>
+        </div>
+
+        <div class="row">
+          <label>
+            <span class="name">
+              Random seed
+              <span class="badge">seed</span>
+            </span>
+          </label>
+          <input id="seed" type="number" min="1" max="999999" step="1" value="1">
+          <small>Controls reproducibility of the random initial state.</small>
+        </div>
+      </div>
+
+      <div class="section-title">Dynamics</div>
+      <div class="grid">
+        <div class="row">
+          <label>
+            <span class="name">
+              Step size
+              <span class="badge">Δx</span>
+            </span>
+          </label>
+          <input id="dx" type="number" min="0.1" max="10" step="0.1" value="1">
+          <small>How far a car moves each timestep.</small>
+        </div>
+
+        <div class="row">
+          <label>
+            <span class="name">
+              Look-ahead
+              <span class="badge">Δx<sub>for</sub></span>
+            </span>
+          </label>
+          <input id="dx_for" type="number" min="0" max="50" step="0.5" value="10">
+          <small>How far ahead each car “samples” the road.</small>
+        </div>
+
+        <div class="row">
+          <label>
+            <span class="name">
+              Decision “softness”
+              <span class="badge">T</span>
+            </span>
+          </label>
+          <input id="T" type="number" min="0.01" max="10" step="0.01" value="0.3">
+          <small>Lower T → more deterministic; higher T → noisier choices.</small>
+        </div>
+
+        <div class="row">
+          <label>
+            <span class="name">
+              Detection sharpness
+              <span class="badge">β</span>
+            </span>
+          </label>
+          <input id="beta" type="number" min="0.01" max="10" step="0.01" value="4">
+          <small>How sharply cars respond to approaching other cars.</small>
+        </div>
+
+        <div class="row">
+          <label>
+            <span class="name">
+              Detection window
+              <span class="badge">θ<sub>win</sub></span>
+            </span>
+          </label>
+          <input id="theta_win" type="number" min="0.01" max="6.28" step="0.01" value="0.8">
+          <small>Angular range a car considers when choosing a new direction.</small>
+        </div>
+
+        <div class="row">
+          <label>
+            <span class="name">
+              Smoothing scale
+              <span class="badge">D</span>
+            </span>
+          </label>
+          <input id="D" type="number" min="0" max="40" step="0.5" value="2">
+          <small>Diffusive smoothing of the occupancy field.</small>
+        </div>
+      </div>
+
+      <div class="section-title">Field &amp; visualization</div>
+      <div class="grid">
+        <div class="row">
+          <label>
+            <span class="name">
+              Deposit per step
+              <span class="badge">Δp</span>
+            </span>
+          </label>
+          <input id="dp" type="number" min="0" max="10" step="0.01" value="1">
+          <small>How strongly each car deposits into the field.</small>
+        </div>
+
+        <div class="row">
+          <label>
+            <span class="name">
+              Decay rate
+              <span class="badge">γ</span>
+            </span>
+          </label>
+          <input id="dpdt" type="number" min="0" max="2" step="0.01" value="0.05">
+          <small>Exponential decay of the field amplitude.</small>
+        </div>
+
+        <div class="row">
+          <label>
+            <span class="name">
+              Saturation level
+              <span class="badge">p<sub>sat</sub></span>
+            </span>
+          </label>
+          <input id="pher_sat" type="number" min="1" max="1000" step="1" value="25">
+          <small>Field strength at which colors saturate.</small>
+        </div>
+
+        <div class="row">
+          <label>
+            <span class="name">
+              Detection threshold
+              <span class="badge">p<sub>det</sub></span>
+            </span>
+          </label>
+          <input id="pher_det" type="number" min="0" max="1000" step="0.1" value="2">
+          <small>Minimum field needed to be “seen” by agents.</small>
+        </div>
+
+        <div class="row checkbox-row">
+          <label>
+            <span class="name">
+              Show agents
+            </span>
+          </label>
+          <input id="drawAnts" type="checkbox" checked>
+        </div>
+
+        <div class="row">
+          <label>
+            <span class="name">
+              Pixel scale
+            </span>
+          </label>
+          <input id="scale" type="number" min="1" max="8" step="1" value="2">
+          <small>Visual scaling of the simulation canvas.</small>
+        </div>
+      </div>
+
+      <div class="section-title">Control</div>
+      <div class="button-row">
+        <button id="startBtn">
+          <span class="icon">▶</span>
+          Start
+        </button>
+        <button id="pauseBtn" class="secondary">
+          <span class="icon">⏸</span>
+          Pause
+        </button>
+        <button id="stepBtn" class="secondary">
+          <span class="icon">⏭</span>
+          Step
+        </button>
+        <button id="resetBtn" class="secondary">
+          <span class="icon">↻</span>
+          Reset
+        </button>
+      </div>
+
+      <div class="metrics">
+        <div class="metric">
+          <div class="metric-label">Step</div>
+          <div class="metric-value">
+            <span id="statStep">0</span>
+          </div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">FPS</div>
+          <div class="metric-value">
+            <span id="statFPS">0.0</span>
+            <span class="unit">frames/s</span>
+          </div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Density</div>
+          <div class="metric-value">
+            <span id="statDensity">—</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="status-row">
+        <div>
+          <span id="simStatus" class="status-pill paused">
+            <span class="dot"></span>
+            <span class="label">Paused</span>
+          </span>
+        </div>
+        <div>Microscopic rules → macroscopic jams.</div>
+      </div>
+
+      <div class="section-title">Recording</div>
+      <div class="rec-controls">
+        <div class="rec-label">
+          <span>
+            Recording status
+          </span>
+          <span>
+            <span id="recDot" class="dot"></span>
+            <span id="recStatus">Idle</span>
+          </span>
+        </div>
+        <div class="rec-buttons">
+          <button id="recStartBtn" class="secondary">
+            <span class="icon">⏺</span>
+            Start recording
+          </button>
+          <button id="recStopBtn" class="secondary">
+            <span class="icon">⏹</span>
+            Stop
+          </button>
+        </div>
+        <div class="rec-label">
+          <span>Recorded FPS</span>
+          <span class="value"><span id="recFps">30</span> fps</span>
+        </div>
+      </div>
+
+      <div class="section-title">Export</div>
+      <div class="export-controls">
+        <div class="row">
+          <button id="exportBtn" class="secondary">
+            <span class="icon">🖼</span>
+            Export current frame
+          </button>
+          <button id="copyLinkBtn" class="secondary">
+            <span class="icon">🔗</span>
+            Copy link
+          </button>
+        </div>
+        <div class="row">
+          <input id="exportLink" type="text" readonly placeholder="Export URL will appear here">
+        </div>
+      </div>
+
+      <div id="notice" class="notice"></div>
+
+      <div class="footer">
+        Tristan Ursell, PhD (C) 2025
+      </div>
+    </section>
+
+    <section class="card">
+      <canvas
+        id="cnv"
+        width="300"
+        height="300"
+        style="width: 600px; height: 600px;"
+      ></canvas>
+
+      <!-- Angular-speed plot for Agent #1 -->
+      <canvas
+        id="angPlot"
+        width="300"
+        height="150"
+        style="width: 600px; height: 200px; margin-top: 12px;"
+      ></canvas>
+    </section>
+  </main>
+
+  <script type="module">
+    function onReady(fn) {
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', fn, { once: true });
+      } else {
+        fn();
+      }
+    }
+
+    const TAU = Math.PI * 2;
+
+    function clamp(x, lo, hi) {
+      return x < lo ? lo : x > hi ? hi : x;
+    }
+
+    function mod(n, m) {
+      return ((n % m) + m) % m;
+    }
+
+    function mulberry32(a) {
+      return function () {
+        let t = (a += 0x6d2b79f5);
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    function buildGaussian1D(sigma) {
+      if (sigma <= 0) return null;
+      const radius = Math.max(1, Math.ceil(sigma * 3)),
+        size = radius * 2 + 1,
+        kernel = new Float32Array(size);
+      let sum = 0;
+      for (let i = -radius, j = 0; i <= radius; i++, j++) {
+        const val = Math.exp(-(i * i) / (2 * sigma * sigma));
+        kernel[j] = val;
+        sum += val;
+      }
+      for (let i = 0; i < size; i++) kernel[i] /= sum;
+      return kernel;
+    }
+
+    function convolveToroidalSeparable(src, L, kernel) {
+      if (!kernel) return src;
+
+      const radius = ((kernel.length - 1) / 2) | 0;
+      const tmp = new Float32Array(L * L);
+      const dst = new Float32Array(L * L);
+
+      for (let y = 0; y < L; y++) {
+        for (let x = 0; x < L; x++) {
+          let acc = 0;
+          for (let k = -radius; k <= radius; k++) {
+            const xx = mod(x + k, L);
+            acc += src[y * L + xx] * kernel[k + radius];
+          }
+          tmp[y * L + x] = acc;
+        }
+      }
+
+      for (let x = 0; x < L; x++) {
+        for (let y = 0; y < L; y++) {
+          let acc = 0;
+          for (let k = -radius; k <= radius; k++) {
+            const yy = mod(y + k, L);
+            acc += tmp[yy * L + x] * kernel[k + radius];
+          }
+          dst[y * L + x] = acc;
+        }
+      }
+
+      return dst;
+    }
+
+    function angleDiff(a) {
+      a = mod(a + Math.PI, TAU) - Math.PI;
+      return a;
+    }
+
+    function softmaxStable(logits, T) {
+      const n = logits.length;
+      const scaled = new Float32Array(n);
+      let maxVal = -Infinity;
+      for (let i = 0; i < n; i++) {
+        const v = logits[i] / T;
+        scaled[i] = v;
+        if (v > maxVal) maxVal = v;
+      }
+      let sumExp = 0;
+      for (let i = 0; i < n; i++) {
+        scaled[i] = Math.exp(scaled[i] - maxVal);
+        sumExp += scaled[i];
+      }
+      const invSum = sumExp > 0 ? 1 / sumExp : 0;
+      for (let i = 0; i < n; i++) {
+        scaled[i] *= invSum;
+      }
+      return scaled;
+    }
+
+    function sampleFromProbs(rng, probs) {
+      let r = rng();
+      const n = probs.length;
+      for (let i = 0; i < n; i++) {
+        const p = probs[i];
+        if (r < p) return i;
+        r -= p;
+      }
+      return n - 1;
+    }
+
+    function packRGBA(r, g, b, a) {
+      return (a << 24) | (b << 16) | (g << 8) | r;
+    }
+
+    const EXP_LUT_MAX = 20;
+    const EXP_LUT_SCALE = 256;
+    const EXP_LUT = (() => {
+      const size = (EXP_LUT_MAX * EXP_LUT_SCALE + 1) | 0;
+      const arr = new Float32Array(size);
+      for (let i = 0; i < size; i++) {
+        const x = i / EXP_LUT_SCALE;
+        arr[i] = Math.exp(x);
+      }
+      return arr;
+    })();
+
+    const COLOR_LUT = (() => {
+      const arr = new Uint32Array(256);
+      function lerp(a, b, t) {
+        return a + (b - a) * t;
+      }
+      function ramp(x) {
+        x = clamp(x, 0, 1);
+        if (x < 0.5) {
+          const t = x * 2;
+          const r = 0;
+          const g = lerp(0, 180, t);
+          const b = lerp(0, 255, t);
+          return [r, g, b];
+        } else {
+          const t = (x - 0.5) * 2;
+          const r = lerp(0, 255, t);
+          const g = lerp(180, 20, t);
+          const b = lerp(255, 30, t);
+          return [r, g, b];
+        }
+      }
+      for (let i = 0; i < 256; i++) {
+        const x = i / 255;
+        const [r, g, b] = ramp(x);
+        arr[i] = packRGBA(r | 0, g | 0, b | 0, 255);
+      }
+      return arr;
+    })();
+
+    class AntSim {
+      constructor(canvas, plotCanvas) {
+        this.c = canvas;
+        this.ctx = canvas.getContext('2d', {
+          willReadFrequently: false,
+        });
+
+        // Optional angular-speed plot canvas
+        this.plotCanvas = plotCanvas || null;
+        this.plotCtx = this.plotCanvas ? this.plotCanvas.getContext('2d') : null;
+
+        this.running = false;
+        this.frame = 0;
+        this.fps = 0;
+        this._fpsTick = performance.now();
+
+        // Time series for Agent #1 angular speed
+        this.angSpeedTime = [];
+        this.angSpeedVals = [];
+      }
+
+      paramsFromUI() {
+        const get = (id) => document.getElementById(id),
+          valN = (id) => Number(get(id).value),
+          L = clamp(valN('L') | 0, 32, 1024),
+          Nants = clamp(valN('Nants') | 0, 1, 10000),
+          Nsamp = clamp(valN('Nsamp') | 0, 8, 4096),
+          seed = clamp(valN('seed') | 0, 1, 999999),
+          dx = valN('dx'),
+          dx_for = valN('dx_for'),
+          T = Math.max(0.001, valN('T')),
+          beta = Math.max(0, valN('beta')),
+          theta_win = valN('theta_win'),
+          D = Math.max(0, valN('D')),
+          dp = Math.max(0, valN('dp')),
+          dpdt = Math.max(0, valN('dpdt')),
+          pher_sat = Math.max(1e-6, valN('pher_sat')),
+          pher_det = Math.max(0, valN('pher_det')),
+          drawAnts = get('drawAnts').checked,
+          scale = clamp(valN('scale') | 0, 1, 8);
+        return {
+          L,
+          Nants,
+          Nsamp,
+          seed,
+          dx,
+          dx_for,
+          T,
+          beta,
+          theta_win,
+          D,
+          dp,
+          dpdt,
+          pher_sat,
+          pher_det,
+          drawAnts,
+          scale,
+          attq: false,
+        };
+      }
+
+      updateDerivedSaturation() {
+        this.invSat = 1 / Math.max(1e-6, this.p.pher_sat);
+        let z = this.p.pher_det * this.invSat;
+        if (z > EXP_LUT_MAX) z = EXP_LUT_MAX;
+        else if (z < 0) z = 0;
+        this.detSatVal = EXP_LUT[(z * EXP_LUT_SCALE) | 0];
+      }
+
+      rebuildAttractorStructures() {
+        const L = this.p.L;
+        const N = L * L;
+        this.attractors = new Float32Array(N);
+        const cx = L / 2;
+        const cy = L / 2;
+        const r0 = L * 0.25;
+        const r1 = L * 0.45;
+        for (let y = 0; y < L; y++) {
+          for (let x = 0; x < L; x++) {
+            const dx = x - cx;
+            const dy = y - cy;
+            const r = Math.sqrt(dx * dx + dy * dy);
+            let val = 0;
+            if (r > r0 && r < r1) {
+              const t = (r - r0) / (r1 - r0);
+              val = Math.sin(t * Math.PI);
+            }
+            this.attractors[y * L + x] = val;
+          }
+        }
+      }
+
+      init() {
+        this.p = this.paramsFromUI();
+        const L = this.p.L;
+        this.c.width = L;
+        this.c.height = L;
+        this.c.style.width = L * this.p.scale + 'px';
+        this.c.style.height = L * this.p.scale + 'px';
+        this.ctx.imageSmoothingEnabled = false;
+        this.imd = this.ctx.createImageData(L, L);
+        this.px = new Uint32Array(this.imd.data.buffer);
+        this.updateDerivedSaturation();
+        this.antPacked = packRGBA(0, 255, 255, 255);
+        this.rng = mulberry32(this.p.seed || 1);
+
+        const Ns = this.p.Nsamp;
+        this.theta_vec = new Float32Array(Ns);
+        this.cos_th = new Float32Array(Ns);
+        this.sin_th = new Float32Array(Ns);
+        for (let k = 0; k < Ns; k++) {
+          const th = (k * TAU) / Ns;
+          this.theta_vec[k] = th;
+          this.cos_th[k] = Math.cos(th);
+          this.sin_th[k] = Math.sin(th);
+        }
+        this.probs = new Float32Array(Ns);
+
+        const N = L * L;
+        this.pher = new Float32Array(N);
+        this.pher.fill(0);
+
+        const A = this.p.Nants;
+        this.ax = new Float32Array(A);
+        this.ay = new Float32Array(A);
+        this.at = new Float32Array(A);
+        this.vx = new Float32Array(A);
+        this.vy = new Float32Array(A);
+        for (let i = 0; i < A; i++) {
+          const th = this.rng() * TAU;
+          this.at[i] = th;
+          this.vx[i] = Math.cos(th);
+          this.vy[i] = Math.sin(th);
+          this.ax[i] = this.rng() * (L - 2) + 1;
+          this.ay[i] = this.rng() * (L - 2) + 1;
+        }
+
+        // Reset angular-speed time series for Agent #1
+        this.angSpeedTime = [];
+        this.angSpeedVals = [];
+
+        // Draw an empty plot at init
+        if (this.plotCtx && this.plotCanvas) {
+          this.renderAngularPlot();
+        }
+
+        this.gk = buildGaussian1D(this.p.D);
+        this.rebuildAttractorStructures();
+
+        this.depositPheromone(this.ax, this.ay, this.p.dp);
+        if (this.p.attq) this.depositAttractors();
+        if (this.p.D > 0) this.pher = convolveToroidalSeparable(this.pher, L, this.gk);
+        this.applyDecay();
+
+        this.frame = 0;
+        this._accumFrames = 0;
+        this._fpsTick = performance.now();
+        this.render();
+      }
+
+      index(x, y) {
+        return (y | 0) * this.p.L + (x | 0);
+      }
+
+      bilinearSample(x, y) {
+        const L = this.p.L,
+          x0 = Math.floor(x),
+          y0 = Math.floor(y),
+          x1 = mod(x0 + 1, L),
+          y1 = mod(y0 + 1, L),
+          fx = x - x0,
+          fy = y - y0,
+          w1 = fx * fy,
+          w2 = (1 - fx) * fy,
+          w3 = fx * (1 - fy),
+          w4 = (1 - fx) * (1 - fy);
+        const idx00 = this.index(x0, y0);
+        const idx10 = this.index(x1, y0);
+        const idx01 = this.index(x0, y1);
+        const idx11 = this.index(x1, y1);
+        const v =
+          this.pher[idx00] * w4 +
+          this.pher[idx10] * w3 +
+          this.pher[idx01] * w2 +
+          this.pher[idx11] * w1;
+        return v;
+      }
+
+      depositPheromone(ax, ay, amount) {
+        const L = this.p.L;
+        const n = ax.length;
+        for (let i = 0; i < n; i++) {
+          const x = ax[i] | 0;
+          const y = ay[i] | 0;
+          this.pher[y * L + x] += amount;
+        }
+      }
+
+      depositAttractors() {
+        const L = this.p.L;
+        const N = L * L;
+        for (let i = 0; i < N; i++) {
+          this.pher[i] += this.attractors[i];
+        }
+      }
+
+      applyDecay() {
+        const decay = Math.exp(-this.p.dpdt),
+          arr = this.pher,
+          n = arr.length;
+        for (let i = 0; i < n; i++) arr[i] *= decay;
+      }
+
+      step() {
+        const A = this.p.Nants,
+          Ns = this.p.Nsamp,
+          L = this.p.L,
+          { dx, dx_for, T, beta, theta_win, dp } = this.p,
+          probs = this.probs;
+
+        for (let j = 0; j < A; j++) {
+          const x1 = this.ax[j],
+            y1 = this.ay[j],
+            vx = this.vx[j],
+            vy = this.vy[j],
+            th0 = this.at[j],
+            xf = mod(x1 + dx_for * vx, L),
+            yf = mod(y1 + dx_for * vy, L);
+
+          for (let k = 0; k < Ns; k++) {
+            const xt = mod(xf + dx * this.cos_th[k], L),
+              yt = mod(yf + dx * this.sin_th[k], L),
+              raw = this.bilinearSample(xt, yt);
+            let z = raw * this.invSat;
+            if (z > EXP_LUT_MAX) z = EXP_LUT_MAX;
+            else if (z < 0) z = 0;
+            const pher = EXP_LUT[(z * EXP_LUT_SCALE) | 0],
+              dth = Math.abs(angleDiff(th0 - this.theta_vec[k])),
+              gate =
+                (1 / (1 + Math.exp(-beta * (dth + theta_win / 2)))) *
+                (1 / (1 + Math.exp(beta * (dth - theta_win / 2))));
+            probs[k] = (pher < this.detSatVal ? 0 : pher) * gate;
+          }
+
+          const P = softmaxStable(probs, T),
+            choice = sampleFromProbs(this.rng, P),
+            cx = this.cos_th[choice],
+            cy = this.sin_th[choice],
+            x2 = mod(x1 + dx * cx, L),
+            y2 = mod(y1 + dx * cy, L),
+            thNew = this.theta_vec[choice];
+
+          // Update position and heading
+          this.ax[j] = x2;
+          this.ay[j] = y2;
+          this.at[j] = thNew;
+          this.vx[j] = cx;
+          this.vy[j] = cy;
+
+          // Track angular speed for Agent #1 (j === 0)
+          if (j === 0) {
+            // Dimensionless angular speed: |Δθ| / Ω_max with Ω_max = π
+            const dthStep = Math.abs(angleDiff(thNew - th0));
+            const omegaNorm = dthStep / Math.PI;
+
+            const tStep = this.frame + 1; // step index as time
+            this.angSpeedTime.push(tStep);
+            this.angSpeedVals.push(omegaNorm);
+          }
+        }
+
+        this.depositPheromone(this.ax, this.ay, dp);
+        if (this.p.attq) this.depositAttractors();
+        if (this.p.D > 0) {
+          this.pher = convolveToroidalSeparable(this.pher, L, this.gk);
+        }
+        this.applyDecay();
+        this.frame++;
+      }
+
+      renderAngularPlot() {
+        if (!this.plotCtx || !this.plotCanvas) return;
+
+        const ctx = this.plotCtx;
+        const W = this.plotCanvas.width;
+        const H = this.plotCanvas.height;
+
+        const left = 50;
+        const right = 10;
+        const top = 10;
+        const bottom = 35;
+
+        ctx.save();
+
+        // Background
+        ctx.clearRect(0, 0, W, H);
+        ctx.fillStyle = '#14161b';
+        ctx.fillRect(0, 0, W, H);
+
+        // Axes
+        ctx.strokeStyle = '#2a3040';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(left, top);
+        ctx.lineTo(left, H - bottom);
+        ctx.lineTo(W - right, H - bottom);
+        ctx.stroke();
+
+        // Labels
+        ctx.fillStyle = '#8a93a8';
+        ctx.font =
+          '11px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        // x-axis label
+        ctx.fillText(
+          'Time (1/Ω_max)',
+          left + (W - left - right) / 2,
+          H - bottom + 18
+        );
+
+        // y-axis label (rotated)
+        ctx.save();
+        ctx.translate(15, top + (H - top - bottom) / 2);
+        ctx.rotate(-Math.PI / 2);
+        ctx.fillText('Angular Speed (θ̇/Ω_max)', 0, 0);
+        ctx.restore();
+
+        const n = this.angSpeedVals ? this.angSpeedVals.length : 0;
+        if (n < 2) {
+          ctx.restore();
+          return;
+        }
+
+        const tArr = this.angSpeedTime;
+        const vArr = this.angSpeedVals;
+
+        // Only plot most recent points for performance
+        const maxPoints = 1000;
+        const startIndex = n > maxPoints ? n - maxPoints : 0;
+
+        const tMin = tArr[startIndex];
+        const tMax = tArr[n - 1];
+
+        let vMax = 0;
+        for (let i = startIndex; i < n; i++) {
+          if (vArr[i] > vMax) vMax = vArr[i];
+        }
+        if (vMax <= 0) vMax = 1;
+
+        const xSpan = W - left - right;
+        const ySpan = H - top - bottom;
+
+        const xFor = (t) =>
+          left +
+          ((t - tMin) / Math.max(1e-6, tMax - tMin)) * xSpan;
+        const yFor = (v) =>
+          H - bottom - (v / vMax) * ySpan;
+
+        // Plot line: light blue, 2 px
+        ctx.beginPath();
+        for (let i = startIndex; i < n; i++) {
+          const x = xFor(tArr[i]);
+          const y = yFor(vArr[i]);
+          if (i === startIndex) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = '#6ee7ff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.restore();
+      }
+
+      render() {
+        const arr = this.pher,
+          invSat = this.invSat,
+          px = this.px;
+        for (let i = 0; i < arr.length; i++) {
+          let z = arr[i] * invSat;
+          if (z > EXP_LUT_MAX) z = EXP_LUT_MAX;
+          else if (z < 0) z = 0;
+          let vi = EXP_LUT[(z * EXP_LUT_SCALE) | 0];
+          if (vi < this.detSatVal) vi = 0;
+          const ci = (vi * 255 + 0.5) | 0;
+          px[i] = COLOR_LUT[ci];
+        }
+
+        if (this.p.drawAnts) {
+          const packed = this.antPacked,
+            L = this.p.L;
+          for (let i = 0; i < this.p.Nants; i++) {
+            const x0 = this.ax[i] | 0;
+            const y0 = this.ay[i] | 0;
+            px[y0 * L + x0] = packed;
+          }
+        }
+
+        this.ctx.putImageData(this.imd, 0, 0);
+
+        this.renderAngularPlot();
+
+        const stepEl = document.getElementById('statStep');
+        if (stepEl) stepEl.textContent = String(this.frame);
+
+        const fpsEl = document.getElementById('statFPS'),
+          now = performance.now();
+        this._accumFrames = (this._accumFrames || 0) + 1;
+        if (now - this._fpsTick > 500) {
+          const fpsExact = (1000 * this._accumFrames) / (now - this._fpsTick);
+          this.fps = Math.round(fpsExact * 10) / 10;
+          if (fpsEl) fpsEl.textContent = this.fps.toFixed(1);
+          this._accumFrames = 0;
+          this._fpsTick = now;
+        }
+      }
+    }
+
+    onReady(() => {
+      const cnv = document.getElementById('cnv'),
+        angPlot = document.getElementById('angPlot'),
+        app = new AntSim(cnv, angPlot);
+      let raf = null,
+        lastExportUrl = null,
+        APPLYING_PRESET = false;
+      let recorder = null,
+        recordedChunks = [],
+        recMime = '',
+        recUrl = null;
+
+      const isRecording = () => recorder && recorder.state === 'recording';
+
+      function pickMimeType(preferMp4) {
+        const c = [];
+        if (preferMp4) {
+          c.push('video/mp4;codecs=avc1,mp4a');
+        }
+        c.push(
+          'video/webm;codecs=vp9,opus',
+          'video/webm;codecs=vp8,opus',
+          'video/webm'
+        );
+        for (const t of c) {
+          if (MediaRecorder.isTypeSupported(t)) return t;
+        }
+        return '';
+      }
+
+      function startLoop() {
+        if (app.running) return;
+        app.running = true;
+        const status = document.getElementById('simStatus');
+        if (status) {
+          status.classList.remove('paused');
+          status.classList.add('running');
+          const label = status.querySelector('.label');
+          if (label) label.textContent = 'Running';
+        }
+        if (!raf) {
+          const tick = () => {
+            if (!app.running) {
+              raf = null;
+              return;
+            }
+            app.step();
+            app.render();
+            raf = requestAnimationFrame(tick);
+          };
+          raf = requestAnimationFrame(tick);
+        }
+      }
+
+      function pauseLoop() {
+        app.running = false;
+        const status = document.getElementById('simStatus');
+        if (status) {
+          status.classList.remove('running');
+          status.classList.add('paused');
+          const label = status.querySelector('.label');
+          if (label) label.textContent = 'Paused';
+        }
+      }
+
+      function singleStep() {
+        if (app.running) return;
+        app.step();
+        app.render();
+      }
+
+      function resetSim() {
+        pauseLoop();
+        app.init();
+        const status = document.getElementById('simStatus');
+        if (status) {
+          status.classList.remove('running');
+          status.classList.add('paused');
+          const label = status.querySelector('.label');
+          if (label) label.textContent = 'Paused';
+        }
+      }
+
+      app.init();
+
+      document.getElementById('startBtn').addEventListener('click', () => {
+        startLoop();
+      });
+
+      document.getElementById('pauseBtn').addEventListener('click', () => {
+        pauseLoop();
+      });
+
+      document.getElementById('stepBtn').addEventListener('click', () => {
+        singleStep();
+      });
+
+      document.getElementById('resetBtn').addEventListener('click', () => {
+        resetSim();
+      });
+
+      const notice = document.getElementById('notice');
+
+      function showNotice(msg, timeout = 4000) {
+        if (!notice) return;
+        notice.textContent = msg;
+        notice.style.display = 'block';
+        if (timeout > 0) {
+          setTimeout(() => {
+            if (notice.textContent === msg) {
+              notice.style.display = 'none';
+            }
+          }, timeout);
+        }
+      }
+
+      function clearNotice() {
+        if (!notice) return;
+        notice.style.display = 'none';
+      }
+
+      document
+        .getElementById('recStartBtn')
+        .addEventListener('click', async () => {
+          if (isRecording()) {
+            showNotice('Already recording.');
+            return;
+          }
+          if (!('MediaRecorder' in window) || !cnv.captureStream) {
+            showNotice(
+              'Recording not supported in this browser. Try Chrome or Firefox.'
+            );
+            return;
+          }
+          const stream = cnv.captureStream(30);
+          const mimeType = pickMimeType(true) || pickMimeType(false);
+          if (!mimeType) {
+            showNotice('No suitable MIME type found for recording.');
+            return;
+          }
+          recMime = mimeType;
+          recorder = new MediaRecorder(stream, { mimeType });
+          recordedChunks = [];
+          recorder.ondataavailable = (e) => {
+            if (e.data.size > 0) recordedChunks.push(e.data);
+          };
+          recorder.onstop = () => {
+            const blob = new Blob(recordedChunks, { type: recMime });
+            if (recUrl) URL.revokeObjectURL(recUrl);
+            recUrl = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = recUrl;
+            a.download = 'traffic-sim-recording.webm';
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+              document.body.removeChild(a);
+            }, 0);
+            recordedChunks = [];
+          };
+          recorder.start();
+          const recDot = document.getElementById('recDot');
+          const recStatus = document.getElementById('recStatus');
+          if (recDot) recDot.classList.add('recording');
+          if (recStatus) recStatus.textContent = 'Recording…';
+          showNotice('Recording has started.', 3000);
+        });
+
+      document.getElementById('recStopBtn').addEventListener('click', () => {
+        if (!isRecording()) {
+          showNotice('Not currently recording.');
+          return;
+        }
+        recorder.stop();
+        const recDot = document.getElementById('recDot');
+        const recStatus = document.getElementById('recStatus');
+        if (recDot) recDot.classList.remove('recording');
+        if (recStatus) recStatus.textContent = 'Idle';
+        showNotice('Recording stopped. Your video will download shortly.', 5000);
+      });
+
+      function showLink(url) {
+        const linkInput = document.getElementById('exportLink');
+        if (linkInput) {
+          linkInput.value = url;
+        }
+        if (lastExportUrl) {
+          URL.revokeObjectURL(lastExportUrl);
+        }
+        lastExportUrl = url;
+      }
+
+      document.getElementById('exportBtn').addEventListener('click', () => {
+        try {
+          cnv.toBlob(
+            (blob) => {
+              if (!blob) {
+                showNotice('Export failed: could not create image blob.');
+                return;
+              }
+              const url = URL.createObjectURL(blob);
+              showLink(url);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = 'traffic-sim-frame.png';
+              document.body.appendChild(a);
+              a.click();
+              setTimeout(() => {
+                document.body.removeChild(a);
+              }, 0);
+            },
+            'image/png'
+          );
+        } catch (err) {
+          console.error('Export failed:', err);
+          showNotice('Export failed. See console for details.');
+        }
+      });
+
+      document.getElementById('copyLinkBtn').addEventListener('click', () => {
+        const linkInput = document.getElementById('exportLink');
+        if (!linkInput || !linkInput.value) {
+          showNotice('No export link to copy yet.');
+          return;
+        }
+        navigator.clipboard
+          .writeText(linkInput.value)
+          .then(() => showNotice('Link copied to clipboard.', 3000))
+          .catch(() => showNotice('Failed to copy link.', 3000));
+      });
+    });
+  </script>
+</body>
+</html>
